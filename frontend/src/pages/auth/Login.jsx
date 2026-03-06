@@ -91,9 +91,21 @@ export default function Login() {
     const token = params.get("token");
     const userParam = params.get("user");
     const oauthError = params.get("oauth_error");
+    const oauthErrorDetail = params.get("oauth_error_detail");
 
     if (oauthError) {
-      setErrorMsg("Google sign-in failed. Please try again.");
+      const oauthErrorMessages = {
+        missing_code: "Google did not return an authorization code.",
+        token_exchange_failed: "Google token exchange failed. Check OAuth client secret and redirect URI.",
+        missing_access_token: "Google token response did not include an access token.",
+        profile_fetch_failed: "Unable to fetch Google profile details.",
+        invalid_profile: "Google profile is missing required fields (email or id).",
+        google_callback_failed: "Google callback failed on server."
+      };
+
+      const friendlyMessage = oauthErrorMessages[oauthError] || `Google sign-in failed (${oauthError}).`;
+      const detailMessage = oauthErrorDetail ? ` Details: ${oauthErrorDetail}` : "";
+      setErrorMsg(`${friendlyMessage}${detailMessage}`);
       const cleanedUrl = `${window.location.origin}${window.location.pathname}`;
       window.history.replaceState({}, document.title, cleanedUrl);
       return;

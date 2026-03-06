@@ -34,6 +34,14 @@ const requireEnv = (key, res) => {
   return value;
 };
 
+const redirectWithOauthError = (res, frontendBaseUrl, code, detail) => {
+  const params = new URLSearchParams({ oauth_error: code });
+  if (detail) {
+    params.set('oauth_error_detail', detail.slice(0, 500));
+  }
+  return res.redirect(`${frontendBaseUrl}/?${params.toString()}`);
+};
+
 const generateToken = (id, role) =>
   jwt.sign(
     { id, role },
@@ -103,7 +111,7 @@ router.get('/google/callback', (req, res) => {
 
       const { code } = req.query;
       if (!code) {
-        return res.redirect(`${frontendBaseUrl}/?oauth_error=missing_code`);
+        return redirectWithOauthError(res, frontendBaseUrl, 'missing_code', 'No authorization code received from Google');
       }
 
       const backendBaseUrl = getBackendBaseUrl(req);
@@ -124,14 +132,23 @@ router.get('/google/callback', (req, res) => {
       });
 
       if (!tokenResponse.ok) {
-        return res.redirect(`${frontendBaseUrl}/?oauth_error=token_exchange_failed`);
+        let tokenErrorDetail = `token_status_${tokenResponse.status}`;
+        try {
+          const tokenErrorBody = await tokenResponse.text();
+          if (tokenErrorBody) {
+            tokenErrorDetail = tokenErrorBody;
+          }
+        } catch (_error) {
+          // ignore parse issues and keep status fallback
+        }
+        return redirectWithOauthError(res, frontendBaseUrl, 'token_exchange_failed', tokenErrorDetail);
       }
 
       const tokenData = await tokenResponse.json();
       const accessToken = tokenData.access_token;
 
       if (!accessToken) {
-        return res.redirect(`${frontendBaseUrl}/?oauth_error=missing_access_token`);
+        return redirectWithOauthError(res, frontendBaseUrl, 'missing_access_token', 'Google token response did not include access_token');
       }
 
       const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -141,7 +158,16 @@ router.get('/google/callback', (req, res) => {
       });
 
       if (!profileResponse.ok) {
-        return res.redirect(`${frontendBaseUrl}/?oauth_error=profile_fetch_failed`);
+        let profileErrorDetail = `profile_status_${profileResponse.status}`;
+        try {
+          const profileErrorBody = await profileResponse.text();
+          if (profileErrorBody) {
+            profileErrorDetail = profileErrorBody;
+          }
+        } catch (_error) {
+          // ignore parse issues and keep status fallback
+        }
+        return redirectWithOauthError(res, frontendBaseUrl, 'profile_fetch_failed', profileErrorDetail);
       }
 
       const profile = await profileResponse.json();
@@ -151,7 +177,7 @@ router.get('/google/callback', (req, res) => {
       const avatar = profile.picture;
 
       if (!email || !googleId) {
-        return res.redirect(`${frontendBaseUrl}/?oauth_error=invalid_profile`);
+        return redirectWithOauthError(res, frontendBaseUrl, 'invalid_profile', 'Google profile is missing email or id');
       }
 
       const user = await getOrCreateOAuthUser({
@@ -176,7 +202,7 @@ router.get('/google/callback', (req, res) => {
       return res.redirect(`${frontendBaseUrl}/?oauth=google&token=${encodeURIComponent(appToken)}&user=${userParam}`);
     } catch (error) {
       console.error('Google OAuth callback error:', error);
-      return res.redirect(`${frontendBaseUrl}/?oauth_error=google_callback_failed`);
+      return redirectWithOauthError(res, frontendBaseUrl, 'google_callback_failed', error?.message || 'Unknown callback error');
     }
   })();
 });
