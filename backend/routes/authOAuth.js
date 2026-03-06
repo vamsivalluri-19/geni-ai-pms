@@ -119,73 +119,82 @@ let oauthMemoryUserCounter = 1;
 
 const isMongoReady = () => mongoose?.connection?.readyState === 1;
 
-const getOrCreateOAuthUser = async ({ email, name, provider, providerId, avatar }) => {
-  if (!isMongoReady()) {
-    const existingMemoryUser = oauthMemoryUsers.get(email);
-    if (existingMemoryUser) {
-      existingMemoryUser.oauthProviders = existingMemoryUser.oauthProviders || {};
-      existingMemoryUser.oauthProviders[provider] = providerId;
-      if (avatar && !existingMemoryUser.avatar) {
-        existingMemoryUser.avatar = avatar;
-      }
-      oauthMemoryUsers.set(email, existingMemoryUser);
-      return existingMemoryUser;
+const getOrCreateMemoryOAuthUser = ({ email, name, provider, providerId, avatar }) => {
+  const existingMemoryUser = oauthMemoryUsers.get(email);
+  if (existingMemoryUser) {
+    existingMemoryUser.oauthProviders = existingMemoryUser.oauthProviders || {};
+    existingMemoryUser.oauthProviders[provider] = providerId;
+    if (avatar && !existingMemoryUser.avatar) {
+      existingMemoryUser.avatar = avatar;
     }
-
-    const memoryUser = {
-      _id: `oauth-memory-${oauthMemoryUserCounter++}`,
-      id: null,
-      name,
-      email,
-      role: 'student',
-      avatar,
-      oauthProviders: {
-        [provider]: providerId
-      },
-      otpVerified: true
-    };
-    memoryUser.id = memoryUser._id;
-    oauthMemoryUsers.set(email, memoryUser);
-    return memoryUser;
+    oauthMemoryUsers.set(email, existingMemoryUser);
+    return existingMemoryUser;
   }
 
-  let user = await User.findOne({ email });
-
-  if (user) {
-    if (!user.oauthProviders) {
-      user.oauthProviders = {};
-    }
-    user.oauthProviders[provider] = providerId;
-    if (avatar && !user.avatar) {
-      user.avatar = avatar;
-    }
-    await user.save();
-    return user;
-  }
-
-  user = await User.create({
+  const memoryUser = {
+    _id: `oauth-memory-${oauthMemoryUserCounter++}`,
+    id: null,
     name,
     email,
-    password: `oauth_${provider}_${providerId}`,
     role: 'student',
     avatar,
     oauthProviders: {
       [provider]: providerId
     },
     otpVerified: true
-  });
+  };
+  memoryUser.id = memoryUser._id;
+  oauthMemoryUsers.set(email, memoryUser);
+  return memoryUser;
+};
 
-  await Student.create({
-    user: user._id,
-    rollNumber: `AUTO-${user._id.toString().slice(-6)}`,
-    branch: 'CSE',
-    cgpa: 0,
-    phoneNumber: '',
-    skills: [],
-    avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
-  });
+const getOrCreateOAuthUser = async ({ email, name, provider, providerId, avatar }) => {
+  if (!isMongoReady()) {
+    return getOrCreateMemoryOAuthUser({ email, name, provider, providerId, avatar });
+  }
 
-  return user;
+  try {
+    let user = await User.findOne({ email });
+
+    if (user) {
+      if (!user.oauthProviders) {
+        user.oauthProviders = {};
+      }
+      user.oauthProviders[provider] = providerId;
+      if (avatar && !user.avatar) {
+        user.avatar = avatar;
+      }
+      await user.save();
+      return user;
+    }
+
+    user = await User.create({
+      name,
+      email,
+      password: `oauth_${provider}_${providerId}`,
+      role: 'student',
+      avatar,
+      oauthProviders: {
+        [provider]: providerId
+      },
+      otpVerified: true
+    });
+
+    await Student.create({
+      user: user._id,
+      rollNumber: `AUTO-${user._id.toString().slice(-6)}`,
+      branch: 'CSE',
+      cgpa: 0,
+      phoneNumber: '',
+      skills: [],
+      avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
+    });
+
+    return user;
+  } catch (dbError) {
+    console.warn('OAuth Mongo fallback activated:', dbError?.message || dbError);
+    return getOrCreateMemoryOAuthUser({ email, name, provider, providerId, avatar });
+  }
 };
 
 // Google OAuth Redirect
