@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { sendEmail } from '../utils/emailService.js';
 
 // In-memory user store (fallback when MongoDB is not available)
@@ -32,6 +33,7 @@ const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const LOGIN_LOCK_MINUTES = 10;
 const MAX_LOGIN_ATTEMPTS = 5;
+const OTP_MAIL_TIMEOUT_MS = Number(process.env.OTP_MAIL_TIMEOUT_MS || 4000);
 const ALLOW_PROD_OTP_FALLBACK =
   String(process.env.ALLOW_PROD_OTP_FALLBACK ?? 'true').toLowerCase() === 'true';
 
@@ -86,13 +88,33 @@ const clearFailedAttempts = (email) => {
   loginAttemptsByEmail.delete(normalizeEmail(email));
 };
 
+const isMongoReady = () => mongoose?.connection?.readyState === 1;
+
+const withTimeout = async (promise, timeoutMs, fallbackValue) => {
+  let timer = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(fallbackValue), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
 const sendOtpMail = async (email, otp, purpose) => {
   const safePurpose = purpose === 'reset-password' ? 'Password Reset' : 'Registration';
-  return await sendEmail({
-    to: email,
-    subject: `Your ${safePurpose} OTP`,
-    html: `<p>Your OTP is <b>${otp}</b>. It is valid for 5 minutes.</p>`
-  });
+  return await withTimeout(
+    sendEmail({
+      to: email,
+      subject: `Your ${safePurpose} OTP`,
+      html: `<p>Your OTP is <b>${otp}</b>. It is valid for 5 minutes.</p>`
+    }),
+    OTP_MAIL_TIMEOUT_MS,
+    { success: false, message: 'Email timeout' }
+  );
 };
 
 export const checkAvailability = async (req, res) => {
@@ -103,21 +125,29 @@ export const checkAvailability = async (req, res) => {
     let phoneAvailable = true;
 
     if (email) {
-      try {
-        const User = (await import('../models/User.js')).default;
-        const existing = await User.findOne({ email }).select('_id');
-        emailAvailable = !existing;
-      } catch (_error) {
+      if (isMongoReady()) {
+        try {
+          const User = (await import('../models/User.js')).default;
+          const existing = await User.findOne({ email }).select('_id');
+          emailAvailable = !existing;
+        } catch (_error) {
+          emailAvailable = !Array.from(memoryUsers.values()).some((u) => normalizeEmail(u.email) === email);
+        }
+      } else {
         emailAvailable = !Array.from(memoryUsers.values()).some((u) => normalizeEmail(u.email) === email);
       }
     }
 
     if (phone) {
-      try {
-        const User = (await import('../models/User.js')).default;
-        const existing = await User.findOne({ phone }).select('_id');
-        phoneAvailable = !existing;
-      } catch (_error) {
+      if (isMongoReady()) {
+        try {
+          const User = (await import('../models/User.js')).default;
+          const existing = await User.findOne({ phone }).select('_id');
+          phoneAvailable = !existing;
+        } catch (_error) {
+          phoneAvailable = !Array.from(memoryUsers.values()).some((u) => String(u.phone || '').trim() === phone);
+        }
+      } else {
         phoneAvailable = !Array.from(memoryUsers.values()).some((u) => String(u.phone || '').trim() === phone);
       }
     }
@@ -148,13 +178,20 @@ export const initiateRegister = async (req, res) => {
       return res.status(400).json({ success: false, message: getRoleMetaError(selectedRole) });
     }
 
-    try {
-      const User = (await import('../models/User.js')).default;
-      const existingUser = await User.findOne({ email: normalizedEmail });
-      if (existingUser) {
-        return res.status(400).json({ success: false, message: 'User already exists' });
+    if (isMongoReady()) {
+      try {
+        const User = (await import('../models/User.js')).default;
+        const existingUser = await User.findOne({ email: normalizedEmail });
+        if (existingUser) {
+          return res.status(400).json({ success: false, message: 'User already exists' });
+        }
+      } catch (_dbError) {
+        const existsInMemory = Array.from(memoryUsers.values()).some((u) => normalizeEmail(u.email) === normalizedEmail);
+        if (existsInMemory) {
+          return res.status(400).json({ success: false, message: 'User already exists' });
+        }
       }
-    } catch (_dbError) {
+    } else {
       const existsInMemory = Array.from(memoryUsers.values()).some((u) => normalizeEmail(u.email) === normalizedEmail);
       if (existsInMemory) {
         return res.status(400).json({ success: false, message: 'User already exists' });
