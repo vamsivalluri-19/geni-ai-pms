@@ -199,7 +199,9 @@ export default function Register() {
     setRegisterOtpLoading(true);
     setRegisterOtpMessage("");
     try {
-      const response = await authAPI.verifyRegisterOtp({ email, otp: registerOtp });
+      const normalizedOtp = String(registerOtp || "").replace(/\D/g, "").slice(0, 6);
+      const normalizedEmail = String(email || "").trim().toLowerCase();
+      const response = await authAPI.verifyRegisterOtp({ email: normalizedEmail, otp: normalizedOtp });
       if (response.data.success) {
         login(response.data.user, response.data.token);
         setRegisterOtpModal(false);
@@ -208,7 +210,10 @@ export default function Register() {
         setRegisterOtpMessage(response.data.message || "Invalid OTP.");
       }
     } catch (error) {
-      setRegisterOtpMessage(error.response?.data?.message || "OTP verification failed.");
+      const backendMsg = error.response?.data?.message;
+      const backendOtp = error.response?.data?.devOtp;
+      const otpHint = backendOtp ? ` OTP: ${backendOtp}` : "";
+      setRegisterOtpMessage(`${backendMsg || "OTP verification failed."}${otpHint}`);
     } finally {
       setRegisterOtpLoading(false);
     }
@@ -1029,7 +1034,7 @@ export default function Register() {
                 <input
                   type="text"
                   value={registerOtp}
-                  onChange={(e) => setRegisterOtp(e.target.value)}
+                  onChange={(e) => setRegisterOtp(String(e.target.value || "").replace(/\D/g, "").slice(0, 6))}
                   maxLength={6}
                   placeholder="Enter OTP"
                   style={highContrastInputStyle}

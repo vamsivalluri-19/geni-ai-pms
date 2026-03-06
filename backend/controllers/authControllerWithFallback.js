@@ -208,7 +208,7 @@ export const initiateRegister = async (req, res) => {
 export const verifyRegisterOtp = async (req, res) => {
   try {
     const normalizedEmail = normalizeEmail(req.body?.email);
-    const otp = String(req.body?.otp || '').trim();
+    const otp = String(req.body?.otp || '').replace(/\D/g, '').slice(0, 6);
     if (!normalizedEmail || !otp) {
       return res.status(400).json({ success: false, message: 'Email and OTP are required' });
     }
@@ -222,6 +222,13 @@ export const verifyRegisterOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'OTP expired. Please request a new OTP.' });
     }
     if (pending.otp !== otp) {
+      if (DEV_OTP_FALLBACK) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid OTP. Please use latest OTP: ${pending.otp}`,
+          devOtp: pending.otp
+        });
+      }
       return res.status(400).json({ success: false, message: 'Invalid OTP.' });
     }
 
