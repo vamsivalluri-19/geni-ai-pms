@@ -162,7 +162,7 @@ const StudentDashboardPro = () => {
     const source = `${notification?.title || ''} ${notification?.message || ''}`;
     const tokenMatch = source.match(/\[RoomID:([a-zA-Z0-9_-]+)\]/i);
     if (tokenMatch?.[1]) return tokenMatch[1];
-
+    const [profileImage, setProfileImage] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`);
     const fallbackMatch = source.match(/room\s+([a-zA-Z0-9_-]+)/i);
     return fallbackMatch?.[1] || '';
   };
