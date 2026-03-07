@@ -67,7 +67,17 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   
   const [currentView, setCurrentView] = useState("overview");
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+      setSidebarOpen(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState("7d");
   const [alertFilter, setAlertFilter] = useState("all");
@@ -712,12 +722,13 @@ const AdminDashboard = () => {
       : 'bg-gradient-to-b from-slate-50 via-white to-slate-100';
     const sidebarBorder = resolvedTheme === 'dark' ? 'border-white/5' : 'border-slate-200';
     
+    // Hide sidebar on mobile unless open
     return (
-    <div
-      className={`fixed left-0 top-0 h-full ${sidebarBg} border-r ${sidebarBorder} transition-all duration-300 z-50 ${
-        isSidebarOpen ? "w-64" : "w-20"
-      }`}
-    >
+      <div
+        className={`fixed left-0 top-0 h-full ${sidebarBg} border-r ${sidebarBorder} transition-all duration-300 z-50 ${
+          isSidebarOpen ? "w-64" : "w-20"
+        } ${isMobile && !isSidebarOpen ? 'hidden' : ''}`}
+      >
       <div className="p-6 mb-8 flex items-center gap-3">
         <img src="/vrd-logo.svg" alt="VRD Logo" className="w-10 h-10 rounded-xl bg-white p-1 object-contain shadow-lg shadow-indigo-500/20" />
         {isSidebarOpen && (
@@ -1086,6 +1097,9 @@ const AdminDashboard = () => {
                             const reader = new FileReader();
                             reader.onload = (event) => {
                               setProfileForm({ ...profileForm, avatar: event.target.result });
+                              if (user) {
+                                user.avatar = event.target.result;
+                              }
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1896,19 +1910,28 @@ const AdminDashboard = () => {
       className={`admin-dashboard admin-theme-${resolvedTheme} min-h-screen ${rootClass} font-sans selection:bg-indigo-500/30`}
       onClick={() => setShowThemeMenu(false)}
     >
+      {/* Hamburger menu for mobile */}
+      {isMobile && (
+        <button
+          className="fixed top-4 left-4 z-[100] p-2 bg-indigo-600 text-white rounded-xl shadow-lg lg:hidden"
+          onClick={() => setSidebarOpen(!isSidebarOpen)}
+        >
+          <Layers size={24} />
+        </button>
+      )}
       <Sidebar />
 
       {showLogoutModal && <LogoutModal />}
 
       <main
         className={`transition-all duration-300 ${
-          isSidebarOpen ? "pl-64" : "pl-20"
+          isMobile ? '' : isSidebarOpen ? "pl-64" : "pl-20"
         }`}
       >
-        <div className="max-w-[1700px] mx-auto p-6 lg:p-12">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className={`max-w-[1700px] mx-auto ${isMobile ? 'p-2' : 'p-6 lg:p-12'}`}>
+          <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-12 gap-8'}`}>
             {/* Main Content - 8 columns */}
-            <div className="lg:col-span-8 space-y-12">
+            <div className={`${isMobile ? '' : 'lg:col-span-8'} space-y-12`}>
               {/* Header Bar */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                 <div className="space-y-2">
@@ -1979,7 +2002,7 @@ const AdminDashboard = () => {
           {currentView === "overview" && (
             <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Telemetry Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className={`grid grid-cols-1 ${isMobile ? 'gap-4' : 'md:grid-cols-2 lg:grid-cols-4 gap-6'}`}> 
                 <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] flex items-center gap-4 hover:bg-white/8 transition-all">
                   <div className="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center">
                     <Users size={24} />
@@ -2042,7 +2065,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Extended Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className={`grid grid-cols-1 ${isMobile ? 'gap-4' : 'md:grid-cols-3 gap-6'}`}> 
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
                   <p className="text-[10px] font-black text-slate-500 tracking-widest mb-2">
                     REQUESTS/SEC
@@ -2088,7 +2111,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Role distribution */}
-              <div className="bg-white/5 border border-white/10 rounded-[2.5rem] p-10 overflow-hidden relative">
+              <div className={`bg-white/5 border border-white/10 rounded-[2.5rem] ${isMobile ? 'p-4' : 'p-10'} overflow-hidden relative`}>
                 <div className="relative z-10 space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-2xl font-black flex items-center gap-3">
@@ -2130,7 +2153,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Recent Activity */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className={`grid grid-cols-1 ${isMobile ? 'gap-4' : 'lg:grid-cols-3 gap-6'}`}> 
                 <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-[2.5rem] p-8">
                   <h3 className="text-2xl font-black mb-6 flex items-center gap-3">
                     <Clock className="text-indigo-400" /> RECENT ACTIVITY
