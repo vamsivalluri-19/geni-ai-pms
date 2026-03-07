@@ -501,51 +501,51 @@ export default function Login() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50 dark:bg-slate-700 p-4 rounded-lg">
-                <h5 className="font-semibold text-blue-900 dark:text-blue-100">
+                <h5 className="font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg">
                   Total Placements
                 </h5>
-                <p className="text-3xl font-bold text-blue-600 mt-2">5,000+</p>
+                <p className="text-3xl font-black text-blue-700 dark:text-yellow-300 drop-shadow-lg mt-2">5,000+</p>
               </div>
               <div className="bg-emerald-50 dark:bg-slate-700 p-4 rounded-lg">
-                <h5 className="font-semibold text-emerald-900 dark:text-emerald-100">
+                <h5 className="font-semibold text-emerald-700 dark:text-yellow-300 drop-shadow-lg">
                   Success Rate
                 </h5>
-                <p className="text-3xl font-bold text-emerald-600 mt-2">94%</p>
+                <p className="text-3xl font-black text-emerald-700 dark:text-yellow-300 drop-shadow-lg mt-2">94%</p>
               </div>
               <div className="bg-rose-50 dark:bg-slate-700 p-4 rounded-lg">
-                <h5 className="font-semibold text-rose-900 dark:text-rose-100">
+                <h5 className="font-semibold text-rose-700 dark:text-yellow-300 drop-shadow-lg">
                   Partner Companies
                 </h5>
-                <p className="text-3xl font-bold text-rose-600 mt-2">500+</p>
+                <p className="text-3xl font-black text-rose-700 dark:text-yellow-300 drop-shadow-lg mt-2">500+</p>
               </div>
               <div className="bg-purple-50 dark:bg-slate-700 p-4 rounded-lg">
-                <h5 className="font-semibold text-purple-900 dark:text-purple-100">
+                <h5 className="font-semibold text-purple-700 dark:text-yellow-300 drop-shadow-lg">
                   Avg. Package
                 </h5>
-                <p className="text-3xl font-bold text-purple-600 mt-2">8.5 LPA</p>
+                <p className="text-3xl font-black text-purple-700 dark:text-yellow-300 drop-shadow-lg mt-2">8.5 LPA</p>
               </div>
             </div>
             <div>
-              <h4 className="text-lg font-semibold mb-3">
+              <h4 className="text-lg font-semibold mb-3 text-blue-700 dark:text-yellow-300 drop-shadow-lg">
                 Top Recruiting Companies
               </h4>
               <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded">
+                <span className="text-sm font-bold text-blue-700 dark:text-yellow-300 bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded drop-shadow-lg">
                   🔹 Google
                 </span>
-                <span className="text-sm bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded">
+                <span className="text-sm font-bold text-blue-700 dark:text-yellow-300 bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded drop-shadow-lg">
                   🔹 Microsoft
                 </span>
-                <span className="text-sm bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded">
+                <span className="text-sm font-bold text-blue-700 dark:text-yellow-300 bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded drop-shadow-lg">
                   🔹 Amazon
                 </span>
-                <span className="text-sm bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded">
+                <span className="text-sm font-bold text-blue-700 dark:text-yellow-300 bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded drop-shadow-lg">
                   🔹 Flipkart
                 </span>
-                <span className="text-sm bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded">
+                <span className="text-sm font-bold text-blue-700 dark:text-yellow-300 bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded drop-shadow-lg">
                   🔹 Accenture
                 </span>
-                <span className="text-sm bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded">
+                <span className="text-sm font-bold text-blue-700 dark:text-yellow-300 bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded drop-shadow-lg">
                   🔹 TCS
                 </span>
               </div>
@@ -614,7 +614,7 @@ export default function Login() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   moreSection === "overview"
                     ? "bg-blue-600 text-white"
-                    : "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-300"
+                    : "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-yellow-200"
                 }`}
               >
                 Overview
@@ -625,7 +625,7 @@ export default function Login() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   moreSection === "success"
                     ? "bg-blue-600 text-white"
-                    : "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-300"
+                    : "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-yellow-200"
                 }`}
               >
                 Success Stories
@@ -636,7 +636,7 @@ export default function Login() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   moreSection === "recruiters"
                     ? "bg-blue-600 text-white"
-                    : "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-300"
+                    : "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-yellow-200"
                 }`}
               >
                 Recruiters
@@ -647,7 +647,7 @@ export default function Login() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   moreSection === "privacy"
                     ? "bg-blue-600 text-white"
-                    : "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-300"
+                    : "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-yellow-200"
                 }`}
               >
                 Privacy Policy
@@ -656,12 +656,12 @@ export default function Login() {
 
             {moreSection === "overview" && (
               <div className="space-y-3">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Platform Highlights</h4>
-                <p className="text-sm text-gray-700 dark:text-gray-300">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-yellow-200">Platform Highlights</h4>
+                <p className="text-sm text-gray-700 dark:text-yellow-100">
                   The platform supports end-to-end placement workflows, including job posting, profile screening,
                   interview scheduling, and offer tracking for students, staff, HR, and admin users.
                 </p>
-                <ul className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
+                <ul className="text-sm space-y-2 text-gray-700 dark:text-yellow-100">
                   <li>• AI-assisted profile analysis and skill insights</li>
                   <li>• Real-time application pipeline visibility</li>
                   <li>• Role-based dashboards with actionable metrics</li>
@@ -671,30 +671,30 @@ export default function Login() {
 
             {moreSection === "success" && (
               <div className="space-y-3">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Success Stories</h4>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-yellow-200">Recent Success Stories</h4>
                 <div className="border-l-4 border-blue-500 pl-4">
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">"Secured a software role in my first interview cycle."</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">- Rahul Sharma, CSE 2025</p>
+                  <p className="font-semibold text-gray-800 dark:text-yellow-100">"Secured a software role in my first interview cycle."</p>
+                  <p className="text-sm text-gray-600 dark:text-yellow-100">- Rahul Sharma, CSE 2025</p>
                 </div>
                 <div className="border-l-4 border-emerald-500 pl-4">
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">"The mock interview flow helped me crack technical rounds."</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">- Priya Patel, ECE 2024</p>
+                  <p className="font-semibold text-gray-800 dark:text-yellow-100">"The mock interview flow helped me crack technical rounds."</p>
+                  <p className="text-sm text-gray-600 dark:text-yellow-100">- Priya Patel, ECE 2024</p>
                 </div>
                 <div className="border-l-4 border-rose-500 pl-4">
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">"I received multiple offers and picked the best fit."</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">- Arjun Singh, IT 2025</p>
+                  <p className="font-semibold text-gray-800 dark:text-yellow-100">"I received multiple offers and picked the best fit."</p>
+                  <p className="text-sm text-gray-600 dark:text-yellow-100">- Arjun Singh, IT 2025</p>
                 </div>
               </div>
             )}
 
             {moreSection === "recruiters" && (
               <div className="space-y-3">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Recruiter Network</h4>
-                <p className="text-sm text-gray-700 dark:text-gray-300">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-yellow-200">Recruiter Network</h4>
+                <p className="text-sm text-gray-700 dark:text-yellow-100">
                   Hiring partners include product companies, service organizations, and startups across software,
                   analytics, consulting, and core engineering roles.
                 </p>
-                <ul className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
+                <ul className="text-sm space-y-2 text-gray-700 dark:text-yellow-100">
                   <li>• 500+ active recruiters with verified openings</li>
                   <li>• Structured hiring pipelines for campus drives</li>
                   <li>• Dedicated HR coordination for interview slots and offers</li>
@@ -704,12 +704,12 @@ export default function Login() {
 
             {moreSection === "privacy" && (
               <div className="space-y-3">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Privacy & Data Use</h4>
-                <p className="text-sm text-gray-700 dark:text-gray-300">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-yellow-200">Privacy & Data Use</h4>
+                <p className="text-sm text-gray-700 dark:text-yellow-100">
                   Personal data is used only for placement operations, candidate communication, and reporting.
                   Access is role-restricted and protected through secure authentication controls.
                 </p>
-                <ul className="text-sm space-y-2 text-gray-700 dark:text-gray-300">
+                <ul className="text-sm space-y-2 text-gray-700 dark:text-yellow-100">
                   <li>• No unauthorized sharing of candidate information</li>
                   <li>• Encrypted credential handling and protected sessions</li>
                   <li>• Audit-friendly logs for critical recruitment actions</li>
@@ -763,7 +763,7 @@ export default function Login() {
               <Phone size={16} /> Contact
             </button>
             <div className="group relative cursor-pointer flex items-center gap-1 text-slate-800 dark:text-slate-100">
-              More <ChevronDown size={14} />
+              <span className="font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg">More</span> <ChevronDown size={14} />
               <div
                 className={`absolute top-full right-0 mt-2 w-48 rounded-xl shadow-xl border opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all ${
                   darkMode
@@ -777,7 +777,7 @@ export default function Login() {
                       setMoreSection("overview");
                       setActiveModal("more");
                     }}
-                    className="w-full text-left px-4 py-2 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg"
+                    className="w-full text-left px-4 py-2 text-white dark:text-blue-300 font-bold hover:bg-blue-600 dark:hover:bg-blue-400 rounded-lg" style={{textShadow:'0 1px 4px #000'}}
                   >
                     More Info
                   </button>
@@ -787,7 +787,7 @@ export default function Login() {
                       setMoreSection("success");
                       setActiveModal("more");
                     }}
-                    className="w-full text-left px-4 py-2 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg"
+                    className="w-full text-left px-4 py-2 text-white dark:text-blue-300 font-bold hover:bg-blue-600 dark:hover:bg-blue-400 rounded-lg" style={{textShadow:'0 1px 4px #000'}}
                   >
                     Success Stories
                   </button>
@@ -797,7 +797,7 @@ export default function Login() {
                       setMoreSection("recruiters");
                       setActiveModal("more");
                     }}
-                    className="w-full text-left px-4 py-2 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg"
+                    className="w-full text-left px-4 py-2 text-white dark:text-blue-300 font-bold hover:bg-blue-600 dark:hover:bg-blue-400 rounded-lg" style={{textShadow:'0 1px 4px #000'}}
                   >
                     Recruiters
                   </button>
@@ -807,7 +807,7 @@ export default function Login() {
                       setMoreSection("privacy");
                       setActiveModal("more");
                     }}
-                    className="w-full text-left px-4 py-2 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg"
+                    className="w-full text-left px-4 py-2 text-white dark:text-blue-300 font-bold hover:bg-blue-600 dark:hover:bg-blue-400 rounded-lg" style={{textShadow:'0 1px 4px #000'}}
                   >
                     Privacy Policy
                   </button>
@@ -874,7 +874,7 @@ export default function Login() {
               )}
               
               <div className="relative">
-                <label className="block text-xs font-semibold mb-2 text-white">
+                <label className="block text-xs font-semibold mb-2 text-white" style={{textShadow:'0 1px 4px #000'}}> 
                   Select Role
                 </label>
                 <select
@@ -894,14 +894,14 @@ export default function Login() {
               </div>
 
               <div className="relative">
-                <label className="block text-xs font-semibold mb-2 text-gray-900 dark:text-blue-200">
+                <label className="block text-xs font-semibold mb-2 text-white" style={{textShadow:'0 1px 4px #000'}}> 
                   Email Address
                 </label>
                 <input
                   type="email"
                   placeholder="your.email@example.com"
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-4 py-3 border-2 rounded-xl outline-none transition-all bg-slate-800/90 text-white placeholder:text-slate-300 border-slate-500 focus:border-blue-400"
+                  className="w-full pl-10 pr-4 py-3 border-2 rounded-xl outline-none transition-all bg-slate-900/90 text-white placeholder:text-slate-300 border-slate-500 focus:border-blue-400"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -912,7 +912,7 @@ export default function Login() {
               </div>
 
               <div className="relative">
-                <label className="block text-xs font-semibold mb-2 text-white">
+                <label className="block text-xs font-semibold mb-2 text-white" style={{textShadow:'0 1px 4px #000'}}> 
                   Password
                 </label>
                 <input
@@ -962,7 +962,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={openForgotModal}
-                  className="text-blue-700 dark:text-blue-200 hover:underline font-bold"
+                  className="text-blue-400 font-bold" style={{textShadow:'0 1px 4px #000'}}
                 >
                   Forgot Password?
                 </button>
@@ -1011,11 +1011,11 @@ export default function Login() {
               </div>
             </form>
 
-            <p className="mt-5 text-sm text-center text-gray-900 dark:text-white">
+            <p className="mt-5 text-sm text-center text-white font-bold" style={{textShadow:'0 1px 4px #000'}}>
               Don't have an account?
-              <Link
-                to="/register"
-                className="text-blue-700 dark:text-blue-200 ml-1 font-bold hover:underline"
+                <Link
+                  to="/register"
+                  className="text-blue-400 ml-1 font-bold hover:underline" style={{textShadow:'0 1px 4px #000'}}
               >
                 Register Now
               </Link>
@@ -1029,11 +1029,12 @@ export default function Login() {
               }`}
             >
               <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
-                <CheckCircle size={14} /> Placement Pulse
+                <CheckCircle size={14} /> <span className="text-blue-700 dark:text-blue-200">Placement Pulse</span>
               </p>
-              <p className="text-sm opacity-90 italic leading-snug text-gray-800 dark:text-slate-200">
-                "25 new job roles added today for the upcoming tech-hiring
-                drive."
+              <p 
+                className="text-lg font-bold italic leading-snug text-white dark:text-blue-300" 
+                style={{textShadow:'0 2px 8px #0a0a0a, 0 1px 4px #000'}}>
+                25 new job roles added today for the upcoming tech-hiring drive.
               </p>
             </div>
           </div>
