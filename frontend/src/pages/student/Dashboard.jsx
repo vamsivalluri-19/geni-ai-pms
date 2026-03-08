@@ -1,3 +1,17 @@
+// Utility to normalize avatar URL
+function getAvatarUrl(avatar) {
+  if (!avatar) return '';
+  // Use HTTPS for deployed environments
+  const baseUrl = process.env.REACT_APP_API_BASE_URL || '';
+  if (avatar.startsWith('/uploads/')) {
+    // If site is HTTPS, ensure image URL is also HTTPS
+    if (window.location.protocol === 'https:') {
+      return baseUrl.replace('http:', 'https:') + avatar;
+    }
+    return baseUrl + avatar;
+  }
+  return avatar;
+}
 import React, { useState, useEffect, useRef, createContext, useContext } from "react";
 // ============ THEME CONTEXT ============
 const ThemeContext = createContext();
@@ -2189,7 +2203,7 @@ const StudentDashboardPro = () => {
           <label className={`text-sm font-bold ${colors.text.muted} uppercase mb-4 block`}>Profile Picture</label>
           <div className="flex justify-center">
             <ImageCropUpload
-              currentImage={profileImage && profileImage.startsWith('/uploads/') ? `${process.env.REACT_APP_API_BASE_URL || ''}${profileImage}` : profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name}`}
+              currentImage={getAvatarUrl(profileImage) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name}`}
               userName={studentDetails.name}
               onImageUpdate={(newAvatarUrl) => {
                 setProfileImage(newAvatarUrl);
