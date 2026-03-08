@@ -1,5 +1,5 @@
 const DEFAULT_PROD_API_URL = "https://gen-ai-placement-management-syste.onrender.com/api";
-const DEFAULT_DEV_API_URL = "http://localhost:5001/api";
+const DEFAULT_DEV_API_URL = "https://gen-ai-placement-management-syste.onrender.com/api";
 
 const normalizeUrl = (url) => (url || "").trim().replace(/\/+$/, "");
 const isLocalhostUrl = (url) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
@@ -17,6 +17,6 @@ const derivedBackendUrl = safeApiUrl.replace(/\/api\/?$/, "");
 
 export const API_BASE_URL = safeApiUrl;
 export const BACKEND_BASE_URL =
-  rawBackendUrl && !(import.meta.env.PROD && isLocalhostUrl(rawBackendUrl))
+  rawBackendUrl
     ? rawBackendUrl
     : derivedBackendUrl;

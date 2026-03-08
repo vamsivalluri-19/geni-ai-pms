@@ -1,8 +1,9 @@
 // Utility to normalize avatar URL
 function getAvatarUrl(avatar) {
   if (!avatar) return '';
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
   if (avatar.startsWith('/uploads/')) {
-    return `${process.env.REACT_APP_API_BASE_URL || ''}${avatar}`;
+    return baseUrl + avatar;
   }
   return avatar;
 }

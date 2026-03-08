@@ -1,13 +1,8 @@
 // Utility to normalize avatar URL
 function getAvatarUrl(avatar) {
   if (!avatar) return '';
-  // Use HTTPS for deployed environments
-  const baseUrl = process.env.REACT_APP_API_BASE_URL || '';
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
   if (avatar.startsWith('/uploads/')) {
-    // If site is HTTPS, ensure image URL is also HTTPS
-    if (window.location.protocol === 'https:') {
-      return baseUrl.replace('http:', 'https:') + avatar;
-    }
     return baseUrl + avatar;
   }
   return avatar;
