@@ -788,7 +788,7 @@ export const updateAvatar = async (req, res) => {
       }
 
       // Create avatar URL - accessible via /uploads/filename
-      const avatarUrl = `http://localhost:5001/uploads/${req.file.filename}`;
+      const avatarUrl = `/uploads/${req.file.filename}`;
       user.avatar = avatarUrl;
       await user.save();
 
@@ -804,7 +804,7 @@ export const updateAvatar = async (req, res) => {
       console.error('MongoDB error, using fallback:', dbError);
       
       // Fallback: still save the file and return success
-      const avatarUrl = `${process.env.BACKEND_URL || 'https://gen-ai-placement-management-syste.onrender.com'}/uploads/${req.file.filename}`;
+      const avatarUrl = `/uploads/${req.file.filename}`;
       
       // Update in-memory user
       const user = memoryUsers.get(userId);

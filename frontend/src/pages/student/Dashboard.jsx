@@ -349,8 +349,8 @@ const StudentDashboardPro = () => {
         setEditFormData(normalizedStudent);
         
         // Set profile image from student avatar or user avatar, fallback to generated
-        const avatarRaw = response.data.student?.avatar || user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`;
-        setProfileImage(getAvatarUrl(avatarRaw));
+        const avatarRaw = response.data.student?.avatar;
+        setProfileImage(avatarRaw ? getAvatarUrl(avatarRaw) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching student data:", error);
@@ -473,9 +473,9 @@ const StudentDashboardPro = () => {
   // Update profile image when studentDetails avatar changes
   useEffect(() => {
     if (studentDetails.avatar) {
-      setProfileImage(studentDetails.avatar);
+      setProfileImage(getAvatarUrl(studentDetails.avatar));
     } else if (user?.avatar) {
-      setProfileImage(user.avatar);
+      setProfileImage(getAvatarUrl(user.avatar));
     } else {
       setProfileImage(`https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name || user?.name}`);
     }
@@ -2288,7 +2288,7 @@ const StudentDashboardPro = () => {
             </div>
             <div className="flex items-center gap-4 mb-4">
               <img
-                src={profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name}`}
+                src={getAvatarUrl(profileImage) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name}`}
                 className="w-20 h-20 rounded-full border-4 border-indigo-400 object-cover"
                 alt="Profile"
                 onError={handleImageError}
@@ -2399,7 +2399,7 @@ const StudentDashboardPro = () => {
               <label className={`text-sm font-bold ${colors.text.muted} uppercase mb-4 block`}>Profile Picture</label>
               <div className="flex justify-center">
                 <ImageCropUpload
-                  currentImage={profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name}`}
+                  currentImage={getAvatarUrl(profileImage) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name}`}
                   userName={studentDetails.name}
                   onImageUpdate={(newAvatarUrl) => {
                     setProfileImage(newAvatarUrl);
@@ -2472,7 +2472,7 @@ const StudentDashboardPro = () => {
           <div className="relative group">
             <div className={`w-32 h-32 rounded-3xl overflow-hidden border-4 ${isDark ? 'border-indigo-500/50' : 'border-indigo-300'} shadow-2xl ${isDark ? 'shadow-indigo-500/20' : 'shadow-indigo-300/20'}`}>
               <img 
-                src={profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name}`} 
+                src={getAvatarUrl(profileImage) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentDetails.name}`} 
                 className="w-full h-full object-cover" 
                 alt="Profile" 
                 onError={handleImageError}

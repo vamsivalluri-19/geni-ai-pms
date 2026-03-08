@@ -76,7 +76,7 @@ const ImageCropUpload = ({ currentImage, onImageUpdate, userName = 'User' }) => 
         // Update preview with full URL if needed
         let newAvatarUrl = response.data.avatar;
         if (newAvatarUrl && newAvatarUrl.startsWith('/uploads/')) {
-          const apiBase = process.env.REACT_APP_API_BASE_URL || '';
+          const apiBase = import.meta.env.VITE_BACKEND_URL || '';
           newAvatarUrl = apiBase + newAvatarUrl;
         }
         setPreview(newAvatarUrl);

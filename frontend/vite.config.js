@@ -5,17 +5,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': {
-        target: 'http://localhost:5001',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/socket.io': {
-        target: 'ws://localhost:5001',
-        ws: true,
-        changeOrigin: true,
-        secure: false,
-      },
+          '/api': {
+            target: process.env.VITE_BACKEND_URL || 'https://gen-ai-placement-management-syste.onrender.com',
+            changeOrigin: true,
+            secure: false,
+          },
+          '/socket.io': {
+            target: process.env.VITE_BACKEND_URL ? `ws://${process.env.VITE_BACKEND_URL.replace('https://', '')}` : 'wss://gen-ai-placement-management-syste.onrender.com',
+            ws: true,
+          },
     },
   },
 });
