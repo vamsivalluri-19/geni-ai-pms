@@ -33,6 +33,10 @@ import otpRoutes from './routes/otp.js';
 import { loadKagglePlacementData } from './utils/kaggleDataService.js';
 
 // 2. Initialize configuration
+import fs from 'fs';
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+}
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env') });
