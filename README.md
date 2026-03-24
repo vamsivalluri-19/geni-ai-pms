@@ -36,6 +36,4 @@ AI-powered placement management system with role-based dashboards (Student, Staf
 ## License
 
 MIT License
-[Presentation]
 
-You can view the project presentation here: [Gen AI Placement System Presentation (PDF)](docs/Gen%20ai%20placement%20system%20presentation.pdf)
