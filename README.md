@@ -36,4 +36,5 @@ AI-powered placement management system with role-based dashboards (Student, Staf
 ## License
 
 MIT License
+<img width="1921" height="971" alt="Screenshot 2026-03-25 215906" src="https://github.com/user-attachments/assets/8b0d75f6-6013-496c-a34c-f2560eceec5c" />
 
