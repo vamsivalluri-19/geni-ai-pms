@@ -8,6 +8,7 @@ function getAvatarUrl(avatar) {
   return avatar;
 }
 import React, { useState, useEffect, useRef, createContext, useContext } from "react";
+import { resumeAnalysisAPI } from '../../services/api';
 // ============ THEME CONTEXT ============
 const ThemeContext = createContext();
 
@@ -155,23 +156,27 @@ const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, "");
 
 // ============ MAIN COMPONENT ============
 const StudentDashboardPro = () => {
+
+  // ==== HOOKS: All hooks must be called at the top level, before any return or conditional logic ====
   const { user, logout } = useAuth();
   const authUserId = user?.id || user?._id;
+  const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
+  const [notifLoading, setNotifLoading] = useState(true);
+  const [notificationsData, setNotificationsData] = useState([]);
+
+  // ==== END HOOKS ====
+
+  // Helper moved up for hook order
   const getStudentPhone = (record) => (
     record?.phone ?? record?.phoneNumber ?? record?.user?.phone ?? user?.phone ?? ''
   );
-  const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
 
-  // Notifications loading and data state
-  const [notifLoading, setNotifLoading] = useState(true);
-  const [notificationsData, setNotificationsData] = useState([]);
 
   const extractRoomIdFromNotification = (notification) => {
     const source = `${notification?.title || ''} ${notification?.message || ''}`;
     const tokenMatch = source.match(/\[RoomID:([a-zA-Z0-9_-]+)\]/i);
     if (tokenMatch?.[1]) return tokenMatch[1];
-    const [profileImage, setProfileImage] = useState(`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`);
     const fallbackMatch = source.match(/room\s+([a-zA-Z0-9_-]+)/i);
     return fallbackMatch?.[1] || '';
   };
@@ -214,7 +219,7 @@ const StudentDashboardPro = () => {
   const [studentData, setStudentData] = useState(null);
   const [uploadingCertificate, setUploadingCertificate] = useState(false);
   const [showAddCertification, setShowAddCertification] = useState(false);
-  const [certForm, setCertForm] = useState({ name: '', issuer: '', date: '', credentialId: '', url: '', certificateFile: null });
+  const [certForm, setCertForm] = useState({ name: '', issuer: '', date: '', credentialId: '', url: '', source: 'student', certificateFile: null });
   const [userCertifications, setUserCertifications] = useState([]);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState(null);
@@ -233,6 +238,7 @@ const StudentDashboardPro = () => {
     fullName: '',
     title: '',
     summary: '',
+    photo: '',
     skills: [],
     experience: [{ role: '', company: '', period: '', details: '' }],
     projects: [{ name: '', details: '', link: '' }],
@@ -340,7 +346,7 @@ const StudentDashboardPro = () => {
         const fetchedStudent = response?.data?.student || {};
         const normalizedStudent = {
           ...fetchedStudent,
-          id: fetchedStudent?.id || fetchedStudent?._id || fetchedStudent?.user?._id || authUserId || '',
+          id: fetchedStudent?.rollNumber || fetchedStudent?.studentId || fetchedStudent?.id || fetchedStudent?._id || fetchedStudent?.user?._id || authUserId || '',
           name: fetchedStudent?.name || fetchedStudent?.user?.name || user?.name || '',
           email: fetchedStudent?.email || fetchedStudent?.user?.email || user?.email || '',
           phone: getStudentPhone(fetchedStudent)
@@ -355,7 +361,7 @@ const StudentDashboardPro = () => {
       } catch (error) {
         console.error("Error fetching student data:", error);
         const defaultData = {
-          id: authUserId || '',
+            id: user?.rollNumber || user?.studentId || authUserId || '',
           name: user.name,
           email: user.email,
           branch: user.branch || "Computer Science",
@@ -408,7 +414,7 @@ const StudentDashboardPro = () => {
 
   // Apply for a job
   const handleApplyForJob = async (jobId) => {
-    if (!user?.id) {
+    if (!authUserId) {
       alert('Please login to apply for jobs');
       return;
     }
@@ -416,7 +422,7 @@ const StudentDashboardPro = () => {
     setApplyingJobId(jobId);
     try {
       const response = await applicationsAPI.create({
-        studentId: user.id,
+        studentId: authUserId,
         jobId: jobId,
         status: 'applied'
       });
@@ -425,6 +431,21 @@ const StudentDashboardPro = () => {
         alert('Application submitted successfully!');
         setShowApplyModal(false);
         setSelectedJobForApplication(null);
+        
+        // Trigger HR dashboard refresh via broadcast
+        try {
+          if (typeof window !== 'undefined' && window?.CustomEvent) {
+            window.dispatchEvent(new CustomEvent('hr:refresh'));
+          }
+          if (typeof window !== 'undefined' && window.BroadcastChannel) {
+            const hrRefreshChannel = new window.BroadcastChannel('hr-dashboard-refresh');
+            hrRefreshChannel.postMessage({ type: 'hr:refresh' });
+            hrRefreshChannel.close();
+          }
+        } catch (e) {
+          // Silently fail if broadcast fails
+        }
+        
         await fetchMyApplications();
         await fetchAvailableJobs();
       }
@@ -440,7 +461,7 @@ const StudentDashboardPro = () => {
   useEffect(() => {
     if (studentData) {
       setStudentDetails({
-        id: studentData.id || user?.id || '',
+        id: studentData.rollNumber || studentData.studentId || studentData.id || user?.studentId || user?.id || '',
         name: studentData.name || user?.name || '',
         branch: studentData.branch || 'Computer Science',
         semester: studentData.semester || '7th Sem',
@@ -485,6 +506,7 @@ const StudentDashboardPro = () => {
   useEffect(() => {
     if ((currentView === 'settings' || currentView === 'profile-update') && studentDetails && !editFormData) {
       setEditFormData({
+        id: studentDetails.id,
         name: studentDetails.name,
         email: studentDetails.email,
         phone: studentDetails.phone,
@@ -582,6 +604,37 @@ const StudentDashboardPro = () => {
     };
 
     fetchDashboardInsights();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshCandidateData = async () => {
+      try {
+        const [jobsRes, applicationsRes, insightsRes] = await Promise.all([
+          jobAPI.getAll(),
+          applicationsAPI.getMyApplications(),
+          statsAPI.getStudentInsights()
+        ]);
+
+        setAvailableJobs(jobsRes.data.jobs || []);
+        setMyApplications(applicationsRes.data.applications || []);
+
+        if (insightsRes?.data?.success) {
+          setDashboardInsights(insightsRes.data);
+        }
+      } catch (error) {
+        console.error('Error refreshing candidate analytics:', error);
+      }
+    };
+
+    const refreshInterval = setInterval(refreshCandidateData, 30000);
+    window.addEventListener('focus', refreshCandidateData);
+
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('focus', refreshCandidateData);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -710,27 +763,8 @@ const StudentDashboardPro = () => {
   const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   const colors = isDark ? themeColors.dark : themeColors.light;
 
-  if (loading) {
-    return (
-      <div className={`min-h-screen bg-gradient-to-br ${colors.bg.primary} flex items-center justify-center`}>
-        <div className="text-center">
-          <Sparkles className={`w-12 h-12 ${colors.accent} mx-auto mb-4 animate-spin`} />
-          <p className={`${colors.text.primary} font-bold`}>Loading your dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
-  if (!studentData) {
-    return (
-      <div className={`min-h-screen bg-gradient-to-br ${colors.bg.primary} flex items-center justify-center`}>
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <p className={`${colors.text.primary} font-bold`}>Error loading student data</p>
-        </div>
-      </div>
-    );
-  }
+  // Instead of early returns, render loading/error UI conditionally below
 
   // Handle Profile Edit
   const handleEditChange = (field, value) => {
@@ -766,23 +800,35 @@ const StudentDashboardPro = () => {
   const handleSaveProfile = async () => {
     setSaveLoading(true);
     try {
-      const response = await studentAPI.updateProfile({
+      await studentAPI.updateProfile({
         ...editFormData,
+        rollNumber: editFormData?.id,
         phoneNumber: editFormData?.phone
       });
+
+      const latestProfileResponse = await studentAPI.getProfile();
+      const latestStudent = latestProfileResponse?.data?.student || {};
+      const normalizedLatestStudent = {
+        ...latestStudent,
+        id: latestStudent?.rollNumber || latestStudent?.studentId || latestStudent?.id || latestStudent?._id || latestStudent?.user?._id || authUserId || '',
+        name: latestStudent?.name || latestStudent?.user?.name || editFormData?.name || '',
+        email: latestStudent?.email || latestStudent?.user?.email || editFormData?.email || '',
+        phone: getStudentPhone(latestStudent)
+      };
       
       // Update student details with the new data
       setStudentDetails(prev => ({
         ...prev,
-        name: editFormData.name,
-        email: editFormData.email,
-        phone: editFormData.phone,
-        branch: editFormData.branch,
-        semester: editFormData.semester,
-        section: editFormData.section,
-        cgpa: editFormData.cgpa,
-        skills: editFormData.skills,
-        avatar: editFormData.avatar
+        id: normalizedLatestStudent.id,
+        name: normalizedLatestStudent.name,
+        email: normalizedLatestStudent.email,
+        phone: normalizedLatestStudent.phone,
+        branch: normalizedLatestStudent.branch || editFormData.branch,
+        semester: normalizedLatestStudent.semester || editFormData.semester,
+        section: normalizedLatestStudent.section || editFormData.section,
+        cgpa: normalizedLatestStudent.cgpa ?? editFormData.cgpa,
+        skills: normalizedLatestStudent.skills || editFormData.skills,
+        avatar: normalizedLatestStudent.avatar || editFormData.avatar
       }));
 
       // Update profile image if avatar was uploaded
@@ -802,16 +848,8 @@ const StudentDashboardPro = () => {
         }));
       }
       
-      if (response?.data?.student) {
-        const updatedStudent = response.data.student;
-        setStudentData({
-          ...updatedStudent,
-          id: updatedStudent?.id || updatedStudent?._id || updatedStudent?.user?._id || authUserId || '',
-          name: updatedStudent?.name || updatedStudent?.user?.name || editFormData?.name || '',
-          email: updatedStudent?.email || updatedStudent?.user?.email || editFormData?.email || '',
-          phone: getStudentPhone(updatedStudent)
-        });
-      }
+      setStudentData(normalizedLatestStudent);
+      setEditFormData(normalizedLatestStudent);
       setEditMode(false);
       setEditFormData((prev) => ({ ...(prev || {}), phone: editFormData?.phone || '' }));
       setSuccessMessage("Profile updated successfully!");
@@ -832,6 +870,13 @@ const StudentDashboardPro = () => {
     setEditMode(false);
   };
 
+  // Resume Analysis State
+  const [resumeAnalysis, setResumeAnalysis] = useState(null);
+  const [analyzingResume, setAnalyzingResume] = useState(false);
+  const [resumeDraftAnalysis, setResumeDraftAnalysis] = useState(null);
+  const [analyzingResumeDraft, setAnalyzingResumeDraft] = useState(false);
+  const [autoCorrectingResumeDraft, setAutoCorrectingResumeDraft] = useState(false);
+
   // Resume upload handler
   const handleResumeUpload = async (event) => {
     const file = event.target.files[0];
@@ -851,24 +896,51 @@ const StudentDashboardPro = () => {
     }
 
     setUploadingResume(true);
+    setAnalyzingResume(true);
+    setResumeAnalysis(null);
     const formData = new FormData();
     formData.append('resume', file);
 
     try {
+      // Upload resume to profile
       const uploadResponse = await api.put('/students/profile', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
-      setStudentData(uploadResponse?.data?.student || null);
+      const uploadedStudent = uploadResponse?.data?.student || null;
+      setStudentData(uploadedStudent ? {
+        ...uploadedStudent,
+        id: uploadedStudent?.rollNumber || uploadedStudent?.studentId || uploadedStudent?.id || uploadedStudent?._id || uploadedStudent?.user?._id || authUserId || '',
+        name: uploadedStudent?.name || uploadedStudent?.user?.name || studentDetails?.name || '',
+        email: uploadedStudent?.email || uploadedStudent?.user?.email || studentDetails?.email || '',
+        phone: getStudentPhone(uploadedStudent)
+      } : null);
       setResumeFile(file);
       setSuccessMessage('Resume uploaded successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
+
+      // Try to extract text from the file (if possible)
+      let resumeText = '';
+      if (file.type === 'application/pdf') {
+        // Optionally, use a PDF parser here for client-side extraction
+        // For now, skip and let backend handle
+      }
+
+      // Call backend for analysis
+      const studentId = uploadResponse?.data?.student?._id || uploadResponse?.data?.student?.id || authUserId;
+      const analysisRes = await resumeAnalysisAPI.analyze({ studentId });
+      if (analysisRes?.data?.analysisResult) {
+        setResumeAnalysis(analysisRes.data.analysisResult);
+      } else if (analysisRes?.data) {
+        setResumeAnalysis(analysisRes.data);
+      }
     } catch (error) {
-      console.error('Error uploading resume:', error);
-      alert('Failed to upload resume. Please try again.');
+      console.error('Error uploading or analyzing resume:', error);
+      alert('Failed to upload or analyze resume. Please try again.');
     } finally {
       setUploadingResume(false);
+      setAnalyzingResume(false);
     }
   };
 
@@ -889,10 +961,38 @@ const StudentDashboardPro = () => {
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
+  const buildResumeDraftSuggestions = (draft = resumeDraft) => {
+    const suggestions = [];
+    const fullName = String(draft.fullName || '').trim();
+    const title = String(draft.title || '').trim();
+    const summary = String(draft.summary || '').trim();
+    const skills = Array.isArray(draft.skills) ? draft.skills.filter(Boolean) : [];
+
+    if (!fullName) suggestions.push('Add your full name so recruiters can identify the resume quickly.');
+    if (!title) suggestions.push('Set a clear target title, for example Frontend Developer or Data Analyst.');
+    if (summary && summary.length < 80) suggestions.push('Expand the summary with 2 to 3 impact-focused sentences.');
+    if (skills.length < 3) suggestions.push('List at least 3 role-relevant skills to improve ATS matching.');
+    if (!draft.links?.email && !studentDetails.email) suggestions.push('Add an email address in the contact section.');
+    if (!draft.links?.linkedin && !draft.links?.github && !draft.links?.website) {
+      suggestions.push('Add LinkedIn, GitHub, or a portfolio link to strengthen the profile.');
+    }
+    if ((draft.experience || []).some((item) => /responsible for|worked on|good knowledge|handled/i.test(String(item?.details || '').toLowerCase()))) {
+      suggestions.push('Replace generic experience text with measurable achievements and action verbs.');
+    }
+    if (/(teh|recieve|seperate|managemnt|develpment|expreience|langauge)/i.test(summary)) {
+      suggestions.push('Possible spelling mistakes detected in the summary. Use Auto Correct to clean it up.');
+    }
+
+    return suggestions.slice(0, 5);
+  };
+
+  const resumeDraftSuggestions = buildResumeDraftSuggestions();
+
   const createDefaultResumeDraft = () => ({
     fullName: studentDetails.name || '',
     title: studentDetails.branch ? `${studentDetails.branch} Student` : 'Student',
     summary: '',
+    photo: studentDetails.avatar || '',
     skills: studentDetails.skills || [],
     experience: [{ role: '', company: '', period: '', details: '' }],
     projects: [{ name: '', details: '', link: '' }],
@@ -914,6 +1014,7 @@ const StudentDashboardPro = () => {
       ...defaults,
       ...draft,
       links: { ...defaults.links, ...(draft?.links || {}) },
+      photo: draft?.photo || defaults.photo,
       experience: draft?.experience?.length ? draft.experience : defaults.experience,
       projects: draft?.projects?.length ? draft.projects : defaults.projects,
       education: draft?.education?.length ? draft.education : defaults.education,
@@ -925,7 +1026,10 @@ const StudentDashboardPro = () => {
   const handleSelectResumeTemplate = (template) => {
     setSelectedResumeTemplate(template);
     const storedDraft = studentData?.resumeDraft ? normalizeResumeDraft(studentData.resumeDraft) : createDefaultResumeDraft();
-    setResumeDraft(storedDraft);
+    setResumeDraft({
+      ...storedDraft,
+      photo: storedDraft.photo || studentDetails.avatar || studentData?.avatar || ''
+    });
   };
 
   const handleResumeDraftChange = (field, value) => {
@@ -936,6 +1040,33 @@ const StudentDashboardPro = () => {
     setResumeDraft((prev) => ({
       ...prev,
       links: { ...prev.links, [field]: value }
+    }));
+  };
+
+  const handleResumePhotoUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file for the resume photo.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setResumeDraft((prev) => ({
+        ...prev,
+        photo: String(reader.result || '')
+      }));
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  const removeResumePhoto = () => {
+    setResumeDraft((prev) => ({
+      ...prev,
+      photo: ''
     }));
   };
 
@@ -975,6 +1106,12 @@ const StudentDashboardPro = () => {
       .filter(Boolean);
     setResumeDraft((prev) => ({ ...prev, skills }));
   };
+
+  const splitBulletPoints = (text = '') =>
+    String(text)
+      .split(/\n|•/)
+      .map((item) => item.trim())
+      .filter(Boolean);
 
   const buildResumeDraftText = () => {
     const lines = [
@@ -1063,13 +1200,32 @@ const StudentDashboardPro = () => {
         const updatedStudent = response.data.student;
         setStudentData({
           ...updatedStudent,
-          id: updatedStudent?.id || updatedStudent?._id || updatedStudent?.user?._id || authUserId || '',
+          id: updatedStudent?.rollNumber || updatedStudent?.studentId || updatedStudent?.id || updatedStudent?._id || updatedStudent?.user?._id || authUserId || '',
           name: updatedStudent?.name || updatedStudent?.user?.name || '',
           email: updatedStudent?.email || updatedStudent?.user?.email || '',
           phone: getStudentPhone(updatedStudent)
         });
       }
-      setSuccessMessage('Resume draft saved successfully!');
+      setAnalyzingResumeDraft(true);
+      let draftAnalysis = null;
+      try {
+        const analysisResponse = await resumeAnalysisAPI.analyze({ resumeText: buildResumeDraftText() });
+        draftAnalysis = analysisResponse?.data?.analysisResult || analysisResponse?.data?.result || analysisResponse?.data || null;
+        if (draftAnalysis) {
+          setResumeDraftAnalysis(draftAnalysis);
+          setResumeAnalysis(draftAnalysis);
+        }
+      } catch (analysisError) {
+        console.error('Error analyzing saved resume draft:', analysisError);
+      } finally {
+        setAnalyzingResumeDraft(false);
+      }
+
+      setSuccessMessage(
+        draftAnalysis?.atsScore
+          ? `Resume draft saved successfully! ATS score updated to ${draftAnalysis.atsScore}%`
+          : 'Resume draft saved successfully!'
+      );
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error saving resume draft:', error);
@@ -1077,102 +1233,334 @@ const StudentDashboardPro = () => {
     }
   };
 
+  const handleAutoCorrectResumeDraft = async () => {
+    setAutoCorrectingResumeDraft(true);
+    try {
+      const prompt = [
+        'You are a resume proofreader and formatter.',
+        'Correct spelling, capitalization, grammar, and wording while preserving meaning.',
+        'Normalize the resume into a professional format and keep the same structure.',
+        'Return ONLY valid JSON with this schema:',
+        '{"fullName":"","title":"","summary":"","skills":[""],"experience":[{"role":"","company":"","period":"","details":""}],"projects":[{"name":"","details":"","link":""}],"education":[{"degree":"","school":"","year":""}],"certifications":[{"name":"","issuer":"","year":"","credentialId":""}],"awards":[{"title":"","issuer":"","year":"","details":""}],"links":{"email":"","phone":"","github":"","linkedin":"","website":""}}',
+        'Draft JSON:',
+        JSON.stringify(resumeDraft, null, 2)
+      ].join('\n');
+
+      const response = await aiAPI.chat({ message: prompt, history: [] });
+      const replyText = response?.data?.reply || '';
+      const jsonMatch = replyText.match(/\{[\s\S]*\}/);
+
+      if (!jsonMatch) {
+        throw new Error('No structured correction returned');
+      }
+
+      const correctedDraft = JSON.parse(jsonMatch[0]);
+      const normalizedDraft = normalizeResumeDraft({
+        ...resumeDraft,
+        ...correctedDraft,
+        skills: Array.isArray(correctedDraft.skills) ? correctedDraft.skills : resumeDraft.skills,
+        links: { ...resumeDraft.links, ...(correctedDraft.links || {}) }
+      });
+
+      setResumeDraft(normalizedDraft);
+      setSuccessMessage('Resume auto-corrected and formatted successfully.');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error auto-correcting resume draft:', error);
+      alert('Auto-correct could not finish right now. Please try again.');
+    } finally {
+      setAutoCorrectingResumeDraft(false);
+    }
+  };
+
   const handleExportResumePdf = () => {
+    if (selectedResumeTemplate?.id === 2) {
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const leftWidth = 180;
+      const rightStart = leftWidth + 28;
+      const rightMaxWidth = pageWidth - rightStart - 32;
+      const photoSource = resumeDraft.photo || '';
+      const photoType = photoSource.match(/^data:(image\/\w+);base64,/i)?.[1] || null;
+      const leftSidebarColor = [110, 156, 160];
+      const headerColor = [247, 173, 99];
+      const photoPanelColor = [143, 184, 187];
+
+      doc.setFillColor(...leftSidebarColor);
+      doc.rect(0, 0, leftWidth, pageHeight, 'F');
+
+      doc.setFillColor(...photoPanelColor);
+      doc.rect(0, 0, leftWidth, 185, 'F');
+
+      if (photoSource && photoType) {
+        try {
+          doc.addImage(photoSource, photoType.toUpperCase().includes('PNG') ? 'PNG' : 'JPEG', 0, 0, leftWidth, 185);
+        } catch (error) {
+          // Fallback to initials if the image format is unsupported.
+        }
+      }
+
+      if (!(photoSource && photoType)) {
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(28);
+        const initials = String(resumeDraft.fullName || studentDetails.name || 'AA')
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toUpperCase() || '')
+          .join('') || 'AA';
+        doc.text(initials, leftWidth / 2, 100, { align: 'center' });
+      }
+
+      const writeLeftSection = (title, lines = []) => {
+        let cursorY = writeLeftSection.cursorY;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(255, 255, 255);
+        doc.text(String(title).toUpperCase(), 18, cursorY);
+        cursorY += 16;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10.5);
+        lines.forEach((line) => {
+          const wrapped = doc.splitTextToSize(String(line), leftWidth - 30);
+          wrapped.forEach((wLine) => {
+            doc.text(wLine, 18, cursorY);
+            cursorY += 13;
+          });
+          cursorY += 5;
+        });
+        writeLeftSection.cursorY = cursorY + 10;
+      };
+      writeLeftSection.cursorY = 220;
+
+      const rightBlock = (title, lines = []) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(24 / 2.4);
+        doc.setTextColor(18, 18, 18);
+        doc.text(String(title).toUpperCase(), rightStart, rightBlock.cursorY);
+        rightBlock.cursorY += 18;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        lines.forEach((line) => {
+          const wrapped = doc.splitTextToSize(String(line), rightMaxWidth);
+          wrapped.forEach((wLine) => {
+            doc.text(wLine, rightStart, rightBlock.cursorY);
+            rightBlock.cursorY += 14;
+          });
+        });
+        rightBlock.cursorY += 18;
+      };
+      rightBlock.cursorY = 115;
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text(resumeDraft.fullName || studentDetails.name || 'Ananya Verma', leftWidth / 2, 217, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.text(resumeDraft.title || 'Software Developer', leftWidth / 2, 236, { align: 'center' });
+
+      writeLeftSection('Contact', [
+        resumeDraft.links.email || studentDetails.email || 'ananya.verma@email.com',
+        resumeDraft.links.phone || studentDetails.phone || '+91-0000000000',
+        resumeDraft.links.linkedin || 'linkedin.com/in/ananyaverma',
+        resumeDraft.links.github || 'github.com/ananyaverma'
+      ]);
+
+      writeLeftSection('Skills', [
+        ...(resumeDraft.skills.length ? resumeDraft.skills : [
+          'Programming Languages: Python, Java, C#',
+          'Tools & Frameworks: TensorFlow, Unity, Git, SQL',
+          'Soft Skills: Analytical Thinking, Problem Solving, Collaboration'
+        ])
+      ]);
+
+      writeLeftSection('Certifications',
+        (resumeDraft.certifications || []).map((cert) => cert.name).filter(Boolean).length
+          ? (resumeDraft.certifications || []).map((cert) => cert.name).filter(Boolean)
+          : ['HCL GUVI Machine Learning Certificate', 'Udemy Advanced Python Programming', 'Coursera Full Stack Web Development']
+      );
+
+      writeLeftSection('Achievements',
+        (resumeDraft.awards || []).map((award) => award.title).filter(Boolean).length
+          ? (resumeDraft.awards || []).map((award) => award.title).filter(Boolean)
+          : ['Winner, National Hackathon 2023', 'Best Project Award, DEF University 2024']
+      );
+
+      doc.setFillColor(...headerColor);
+      doc.rect(rightStart, 20, pageWidth - rightStart - 20, 86, 'F');
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(34);
+      doc.text(resumeDraft.fullName || studentDetails.name || 'Ananya Verma', rightStart + 14, 56);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(20);
+      doc.text(resumeDraft.title || 'Software Developer', rightStart + 14, 84);
+
+      rightBlock.cursorY = 138;
+      rightBlock('Career Objective', [
+        resumeDraft.summary || 'Enthusiastic fresher seeking a software development role to apply project experience in AI, web development, and data analysis, and contribute to innovative solutions.'
+      ]);
+
+      const educationGrid = [];
+      const educationItem = (resumeDraft.education || [])[0] || { degree: 'B.Tech in Computer Science', school: 'DEF University', year: '2025' };
+      educationGrid.push(`${educationItem.school || 'DEF University'}`);
+      educationGrid.push(`${educationItem.degree || 'B.Tech in Computer Science'}`);
+      rightBlock('Education', [
+        `${educationItem.school || 'DEF University'}        ${educationItem.degree || 'B.Tech in Computer Science'}`,
+        `${educationItem.year || '2025'}        GPA: ${studentDetails.cgpa ? `${studentDetails.cgpa}/10` : '8.7/10'}`,
+        'Relevant Coursework: Machine Learning, Database Management, Web Technologies'
+      ]);
+
+      rightBlock('Project Experience',
+        (resumeDraft.projects.length ? resumeDraft.projects : [
+          { name: 'AI Chatbot for Customer Support', details: 'Developed using Python & NLP\nReduced response time by 40% and improved customer satisfaction' },
+          { name: 'E-Commerce Recommendation Engine', details: 'Built using collaborative filtering in Python\nIncreased recommendation accuracy by 25%' },
+          { name: 'Mobile Game App', details: 'Designed & deployed using Unity and C#\nAchieved 500+ downloads on Google Play Store' }
+        ]).flatMap((proj) => [
+          proj.name || 'Project Name',
+          ...splitBulletPoints(proj.details || '').map((line) => `• ${line}`)
+        ])
+      );
+
+      rightBlock('Internship', [
+        '3 months        Software Development Intern at GHI Tech',
+        'Developed backend APIs for client applications Assisted in testing and debugging modules'
+      ]);
+
+      const safeName = resumeDraft.fullName ? resumeDraft.fullName.replace(/\s+/g, '-') : 'resume-draft';
+      doc.save(`${safeName}.pdf`);
+      return;
+    }
+
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const margin = 40;
+    const margin = 48;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const maxWidth = pageWidth - margin * 2;
+    const rightX = pageWidth - margin;
     let y = margin;
 
-    const addLines = (text, fontSize = 11, isBold = false) => {
+    const ensureSpace = (heightNeeded = 14) => {
+      if (y + heightNeeded > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    const writeWrapped = (text, x, fontSize = 11, isBold = false, width = maxWidth, lineGap = 3) => {
       if (!text) return;
-      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+      doc.setFont('times', isBold ? 'bold' : 'normal');
       doc.setFontSize(fontSize);
-      const lines = doc.splitTextToSize(text, maxWidth);
+      const lines = doc.splitTextToSize(String(text), width);
       lines.forEach((line) => {
-        if (y > pageHeight - margin) {
-          doc.addPage();
-          y = margin;
-        }
-        doc.text(line, margin, y);
-        y += fontSize + 4;
+        ensureSpace(fontSize + lineGap + 2);
+        doc.text(line, x, y);
+        y += fontSize + lineGap;
       });
     };
 
-    addLines(resumeDraft.fullName || 'Resume', 18, true);
-    addLines(resumeDraft.title || '', 12);
-    addLines(`Email: ${resumeDraft.links.email || 'N/A'}`, 10);
-    addLines(`Phone: ${resumeDraft.links.phone || 'N/A'}`, 10);
-    addLines(`Website: ${resumeDraft.links.website || 'N/A'}`, 10);
-    addLines(`GitHub: ${resumeDraft.links.github || 'N/A'}`, 10);
-    addLines(`LinkedIn: ${resumeDraft.links.linkedin || 'N/A'}`, 10);
-    y += 6;
+    const writeSectionHeader = (title) => {
+      y += 6;
+      ensureSpace(22);
+      doc.setFont('times', 'bold');
+      doc.setFontSize(12);
+      doc.text(String(title).toUpperCase(), margin, y);
+      y += 4;
+      doc.setDrawColor(120);
+      doc.setLineWidth(0.8);
+      doc.line(margin, y, rightX, y);
+      y += 14;
+    };
 
-    addLines('Summary', 12, true);
-    addLines(resumeDraft.summary || 'N/A');
-    y += 6;
+    const writeLeftRightLine = (leftText, rightText, leftBold = false, rightBold = false, fontSize = 11) => {
+      ensureSpace(fontSize + 4);
+      doc.setFont('times', leftBold ? 'bold' : 'normal');
+      doc.setFontSize(fontSize);
+      doc.text(String(leftText || ''), margin, y);
+      if (rightText) {
+        doc.setFont('times', rightBold ? 'bold' : 'normal');
+        doc.text(String(rightText), rightX, y, { align: 'right' });
+      }
+      y += fontSize + 3;
+    };
 
-    addLines('Skills', 12, true);
-    addLines(resumeDraft.skills.length ? resumeDraft.skills.join(', ') : 'N/A');
-    y += 6;
-
-    addLines('Experience', 12, true);
-    if (resumeDraft.experience.length) {
-      resumeDraft.experience.forEach((exp, idx) => {
-        const title = `${idx + 1}. ${exp.role || 'Role'} - ${exp.company || 'Company'} (${exp.period || 'Period'})`;
-        addLines(title, 11, true);
-        addLines(exp.details || '');
+    const writeBullets = (items) => {
+      items.forEach((item) => {
+        const bulletText = String(item || '').trim();
+        if (!bulletText) return;
+        const wrapped = doc.splitTextToSize(`• ${bulletText}`, maxWidth - 18);
+        wrapped.forEach((line, index) => {
+          ensureSpace(14);
+          doc.setFont('times', 'normal');
+          doc.setFontSize(11);
+          doc.text(line, margin + (index === 0 ? 12 : 20), y);
+          y += 14;
+        });
       });
-    } else {
-      addLines('N/A');
-    }
-    y += 6;
+    };
 
-    addLines('Projects', 12, true);
-    if (resumeDraft.projects.length) {
-      resumeDraft.projects.forEach((proj, idx) => {
-        const title = `${idx + 1}. ${proj.name || 'Project'}${proj.link ? ` (${proj.link})` : ''}`;
-        addLines(title, 11, true);
-        addLines(proj.details || '');
-      });
-    } else {
-      addLines('N/A');
-    }
-    y += 6;
+    const name = (resumeDraft.fullName || 'FIRST LAST').toUpperCase();
+    const contactParts = [
+      resumeDraft.links.website || 'City, State',
+      resumeDraft.links.email,
+      resumeDraft.links.phone,
+      resumeDraft.links.linkedin
+    ].filter(Boolean);
+    const contactLine = contactParts.join(' • ');
 
-    addLines('Education', 12, true);
-    if (resumeDraft.education.length) {
-      resumeDraft.education.forEach((edu, idx) => {
-        const line = `${idx + 1}. ${edu.degree || 'Degree'} - ${edu.school || 'School'} (${edu.year || 'Year'})`;
-        addLines(line);
-      });
-    } else {
-      addLines('N/A');
+    doc.setFont('times', 'bold');
+    doc.setFontSize(22);
+    doc.text(name, pageWidth / 2, y, { align: 'center' });
+    y += 18;
+    doc.setFont('times', 'normal');
+    doc.setFontSize(11);
+    if (contactLine) {
+      doc.text(contactLine, pageWidth / 2, y, { align: 'center' });
+      y += 12;
     }
-    y += 6;
 
-    addLines('Certifications', 12, true);
-    if (resumeDraft.certifications.length) {
-      resumeDraft.certifications.forEach((cert, idx) => {
-        const line = `${idx + 1}. ${cert.name || 'Certification'} - ${cert.issuer || 'Issuer'} (${cert.year || 'Year'})${cert.credentialId ? ` ID: ${cert.credentialId}` : ''}`;
-        addLines(line);
-      });
-    } else {
-      addLines('N/A');
-    }
-    y += 6;
+    writeSectionHeader('Education');
+    (resumeDraft.education || []).forEach((edu) => {
+      writeLeftRightLine(edu.school || 'University Name', edu.year || '', true, false);
+      writeLeftRightLine(edu.degree || 'Degree and Major', '', false, false);
+      y += 4;
+    });
 
-    addLines('Awards', 12, true);
-    if (resumeDraft.awards.length) {
-      resumeDraft.awards.forEach((award, idx) => {
-        const line = `${idx + 1}. ${award.title || 'Award'} - ${award.issuer || 'Issuer'} (${award.year || 'Year'})`;
-        addLines(line, 11, true);
-        addLines(award.details || '');
-      });
-    } else {
-      addLines('N/A');
-    }
+    writeSectionHeader('Professional Experience');
+    (resumeDraft.experience || []).forEach((exp) => {
+      writeLeftRightLine(exp.company || 'Company Name', exp.period || '', true, false);
+      writeLeftRightLine(exp.role || 'Role Title', '', false, false);
+      writeBullets(splitBulletPoints(exp.details));
+      y += 4;
+    });
+
+    writeSectionHeader('Activities and Leadership');
+    (resumeDraft.awards || []).forEach((item) => {
+      writeLeftRightLine(item.title || 'Activity / Leadership', item.year || '', true, false);
+      if (item.issuer) writeLeftRightLine(item.issuer, '', false, false);
+      writeBullets(splitBulletPoints(item.details));
+      y += 4;
+    });
+
+    writeSectionHeader('University Projects');
+    (resumeDraft.projects || []).forEach((proj) => {
+      writeLeftRightLine(proj.name || 'Project Name', '', true, false);
+      if (proj.link) writeLeftRightLine(proj.link, '', false, false, 10);
+      writeBullets(splitBulletPoints(proj.details));
+      y += 4;
+    });
+
+    writeSectionHeader('Other');
+    writeBullets([
+      `Technical: ${resumeDraft.skills?.length ? resumeDraft.skills.join(', ') : 'Add technical skills'}`,
+      `Certifications: ${(resumeDraft.certifications || []).map((cert) => cert.name).filter(Boolean).join(', ') || 'Add certifications'}`,
+      `Summary: ${resumeDraft.summary || 'Add a short profile summary'}`
+    ]);
 
     const safeName = resumeDraft.fullName ? resumeDraft.fullName.replace(/\s+/g, '-') : 'resume-draft';
     doc.save(`${safeName}.pdf`);
@@ -1244,12 +1632,24 @@ const StudentDashboardPro = () => {
     setExamAnswers({});
   };
 
+  const updateExamAnswer = (questionIndex, nextValue) => {
+    setExamAnswers((prev) => ({
+      ...prev,
+      [questionIndex]: {
+        ...(prev[questionIndex] || {}),
+        ...nextValue
+      }
+    }));
+  };
+
   const handleSubmitExam = async () => {
     if (!activeExam) return;
 
     const answers = (activeExam.questions || []).map((question, index) => ({
       questionIndex: index,
-      answer: examAnswers[index] || ''
+      answer: examAnswers[index]?.answer || examAnswers[index] || '',
+      selectedOption: examAnswers[index]?.selectedOption,
+      language: examAnswers[index]?.language
     }));
 
     try {
@@ -1391,35 +1791,19 @@ const StudentDashboardPro = () => {
   const resumeTemplates = [
     {
       id: 1,
-      name: 'Modern Professional',
-      category: 'Contemporary',
-      downloads: 1234,
-      used: 567,
-      rating: '4.8'
+      name: 'Classic Academic Template',
+      category: 'Fixed Format',
+      downloads: 1,
+      used: 1,
+      rating: '5.0'
     },
     {
       id: 2,
-      name: 'Tech Developer',
-      category: 'Technical',
-      downloads: 2156,
-      used: 890,
-      rating: '4.9'
-    },
-    {
-      id: 3,
-      name: 'Executive',
-      category: 'Professional',
-      downloads: 890,
-      used: 345,
-      rating: '4.7'
-    },
-    {
-      id: 4,
-      name: 'Creative Designer',
-      category: 'Design',
-      downloads: 1567,
-      used: 423,
-      rating: '4.6'
+      name: 'Sidebar Professional Template',
+      category: 'Fixed Format',
+      downloads: 1,
+      used: 1,
+      rating: '5.0'
     }
   ];
 
@@ -2382,6 +2766,18 @@ const StudentDashboardPro = () => {
                   className={`w-full ${colors.bg.input} ${colors.border} rounded-xl px-4 py-3 ${colors.text.primary} focus:outline-none focus:border-indigo-500`}
                 />
               </div>
+
+              {/* Student ID */}
+              <div>
+                <label className={`text-sm font-bold ${colors.text.muted} uppercase mb-2 block`}>Student ID</label>
+                <input
+                  type="text"
+                  value={editFormData?.id ?? studentDetails.id ?? ''}
+                  onChange={(e) => handleEditChange('id', e.target.value)}
+                  className={`w-full ${colors.bg.input} ${colors.border} rounded-xl px-4 py-3 ${colors.text.primary} focus:outline-none focus:border-indigo-500`}
+                />
+              </div>
+
               <div>
                 <label className={`text-sm font-bold ${colors.text.muted} uppercase mb-2 block`}>CGPA</label>
                 <input
@@ -3266,6 +3662,19 @@ END:VCALENDAR`;
             onChange={(e) => setCertForm({ ...certForm, url: e.target.value })}
             className={`w-full px-4 py-3 rounded-xl ${colors.bg.input} ${colors.border} ${colors.text.primary} text-sm`}
           />
+          <div>
+            <label className={`block text-xs font-bold uppercase tracking-widest ${colors.text.muted} mb-2`}>
+              Uploaded By
+            </label>
+            <select
+              value={certForm.source}
+              onChange={(e) => setCertForm({ ...certForm, source: e.target.value })}
+              className={`w-full px-4 py-3 rounded-xl ${colors.bg.input} ${colors.border} ${colors.text.primary} text-sm`}
+            >
+              <option value="student">Student</option>
+              <option value="staff">Staff</option>
+            </select>
+          </div>
           <label className={`block px-4 py-4 rounded-xl ${colors.bg.input} ${colors.border} ${colors.text.primary} cursor-pointer text-center font-bold text-xs uppercase hover:opacity-80 transition-opacity`}>
             {certForm.certificateFile ? `✓ ${certForm.certificateFile.name}` : (uploadingCertificate ? 'Uploading...' : '📄 Upload Certificate File (PDF/JPG/PNG)')}
             <input
@@ -3286,11 +3695,12 @@ END:VCALENDAR`;
                     date: certForm.date,
                     credentialId: certForm.credentialId,
                     url: certForm.url || '#',
+                    source: certForm.source,
                     status: 'Active',
                     certificateFile: certForm.certificateFile?.name || null
                   };
                   setUserCertifications([...userCertifications, newCert]);
-                  setCertForm({ name: '', issuer: '', date: '', credentialId: '', url: '', certificateFile: null });
+                  setCertForm({ name: '', issuer: '', date: '', credentialId: '', url: '', source: 'student', certificateFile: null });
                   setShowAddCertification(false);
                   setSuccessMessage('Certification added successfully!');
                   setTimeout(() => setSuccessMessage(''), 3000);
@@ -3305,7 +3715,7 @@ END:VCALENDAR`;
             </button>
             <button
               onClick={() => {
-                setCertForm({ name: '', issuer: '', date: '', credentialId: '', url: '', certificateFile: null });
+                setCertForm({ name: '', issuer: '', date: '', credentialId: '', url: '', source: 'student', certificateFile: null });
                 setShowAddCertification(false);
               }}
               className={`flex-1 px-4 py-2 rounded-lg font-bold text-xs uppercase ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'} ${colors.text.primary}`}
@@ -3323,20 +3733,25 @@ END:VCALENDAR`;
               <div>
                 <h3 className={`text-lg font-bold ${colors.text.primary}`}>{cert.name}</h3>
                 <p className="text-indigo-400 text-sm">{cert.issuer}</p>
-                <span className={`text-[10px] mt-2 px-2 py-1 rounded-full ${cert.status === 'Active' ? isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700' : isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>
-                  {cert.status}
-                </span>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <span className={`text-[10px] px-2 py-1 rounded-full ${cert.status === 'Active' ? isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700' : isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>
+                    {cert.status || 'Active'}
+                  </span>
+                  <span className={`text-[10px] px-2 py-1 rounded-full ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                    {String(cert.source || 'student').toUpperCase()} UPLOAD
+                  </span>
+                </div>
               </div>
               <Award className="w-6 h-6 text-amber-500" />
             </div>
             <div className="space-y-3 text-sm mb-4">
               <div>
-                <p className={`${colors.text.muted} font-bold text-xs uppercase`}>Issued Date</p>
-                <p className={colors.text.primary}>{new Date(cert.date).toLocaleDateString()}</p>
+                <p className={`${colors.text.muted} font-bold text-xs uppercase`}>Issue Date</p>
+                <p className={colors.text.primary}>{cert.date ? new Date(cert.date).toLocaleDateString() : (cert.issueDate ? new Date(cert.issueDate).toLocaleDateString() : 'N/A')}</p>
               </div>
               <div>
                 <p className={`${colors.text.muted} font-bold text-xs uppercase`}>Credential ID</p>
-                <p className={`${colors.text.primary} font-mono text-xs`}>{cert.credentialId}</p>
+                <p className={`${colors.text.primary} font-mono text-xs`}>{cert.credentialId || 'N/A'}</p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -4075,9 +4490,17 @@ END:VCALENDAR`;
                       Start Exam
                     </button>
                   )}
-                  {submission?.feedback && (
-                    <p className={`${colors.text.secondary} text-sm`}>Feedback: {submission.feedback}</p>
-                  )}
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    {Number.isFinite(Number(submission?.score)) && (
+                      <p className={`${colors.text.secondary}`}>Score: <span className="font-bold text-emerald-400">{submission.score}</span></p>
+                    )}
+                    {submission?.reviewedAt && (
+                      <p className={`${colors.text.secondary}`}>Reviewed: {new Date(submission.reviewedAt).toLocaleDateString()}</p>
+                    )}
+                    {submission?.feedback && (
+                      <p className={`${colors.text.secondary}`}>Feedback: {submission.feedback}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -4100,14 +4523,58 @@ END:VCALENDAR`;
             <div className="p-6 space-y-6">
               {(activeExam.questions || []).map((question, index) => (
                 <div key={index} className={`${isDark ? 'bg-white/5' : 'bg-gray-100'} p-4 rounded-xl`}>
-                  <p className={`font-bold ${colors.text.primary}`}>Q{index + 1}. {question.question}</p>
-                  <textarea
-                    rows="3"
-                    value={examAnswers[index] || ''}
-                    onChange={(e) => setExamAnswers((prev) => ({ ...prev, [index]: e.target.value }))}
-                    className={`w-full mt-3 px-4 py-2 rounded-lg ${colors.bg.input} ${colors.border} ${colors.text.primary}`}
-                    placeholder="Type your answer..."
-                  />
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className={`font-bold ${colors.text.primary}`}>Q{index + 1}. {question.question}</p>
+                      <p className={`${colors.text.secondary} mt-1 text-xs uppercase tracking-[0.2em]`}>
+                        {question.type || (Array.isArray(question.options) && question.options.length ? 'mcq' : 'short-answer')}
+                      </p>
+                    </div>
+                    {Array.isArray(question.allowedProgrammingLanguages) && question.allowedProgrammingLanguages.length > 0 && (
+                      <select
+                        value={examAnswers[index]?.language || question.allowedProgrammingLanguages[0]}
+                        onChange={(e) => updateExamAnswer(index, { language: e.target.value })}
+                        className={`rounded-lg border px-3 py-2 text-sm ${colors.bg.input} ${colors.border} ${colors.text.primary}`}
+                      >
+                        {question.allowedProgrammingLanguages.map((language) => (
+                          <option key={language} value={language}>{language}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {Array.isArray(question.options) && question.options.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {question.options.map((option, optionIndex) => (
+                        <label key={optionIndex} className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer ${colors.border} ${isDark ? 'bg-black/10' : 'bg-white'}`}>
+                          <input
+                            type="radio"
+                            name={`question-${index}`}
+                            checked={String(examAnswers[index]?.selectedOption ?? examAnswers[index]) === String(optionIndex)}
+                            onChange={() => updateExamAnswer(index, { selectedOption: optionIndex, answer: option })}
+                            className="h-4 w-4"
+                          />
+                          <span className={`${colors.text.primary} text-sm`}>{option}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <textarea
+                      rows="4"
+                      value={typeof examAnswers[index] === 'object' ? (examAnswers[index]?.answer || '') : (examAnswers[index] || '')}
+                      onChange={(e) => updateExamAnswer(index, { answer: e.target.value })}
+                      className={`w-full mt-3 px-4 py-2 rounded-lg ${colors.bg.input} ${colors.border} ${colors.text.primary}`}
+                      placeholder={question.type === 'coding' ? 'Write your code or solution here...' : 'Type your answer...'}
+                    />
+                  )}
+
+                  {question.type === 'coding' && (
+                    <div className="mt-3 rounded-xl border border-indigo-400/20 bg-indigo-500/5 p-3 text-xs text-indigo-200">
+                      {Array.isArray(question.allowedProgrammingLanguages) && question.allowedProgrammingLanguages.length > 0
+                        ? `Supported languages: ${question.allowedProgrammingLanguages.join(', ')}`
+                        : 'Coding question'}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -4123,6 +4590,8 @@ END:VCALENDAR`;
 
 // ============ RENDER RESUME ============
   function renderResume() {
+    const activeResumeAnalysis = resumeDraftAnalysis || resumeAnalysis;
+
     return (
       <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* --- RESUME SECTION --- */}
@@ -4237,6 +4706,77 @@ END:VCALENDAR`;
               </label>
             </div>
           )}
+
+        {/* Resume ATS Analysis Section */}
+        {analyzingResume && (
+          <div className="mt-8 p-6 bg-gradient-to-br from-blue-900/40 to-purple-900/40 rounded-2xl border border-white/10 text-center animate-pulse">
+            <p className="text-lg font-bold text-blue-300">Analyzing your resume for ATS score...</p>
+          </div>
+        )}
+        {activeResumeAnalysis && (
+          <section className="mt-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 rounded-2xl p-6 border border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Target className="h-6 w-6 text-blue-400" /> ATS Score
+                </h4>
+                <div className="text-4xl font-black text-blue-400">{activeResumeAnalysis.atsScore}%</div>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden mb-4">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000"
+                  style={{ width: `${activeResumeAnalysis.atsScore}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 text-sm">Placement Probability</span>
+                <span className="text-emerald-400 font-bold">{activeResumeAnalysis.placementProbability}%</span>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Zap className="h-5 w-5 text-emerald-400" /> Key Strengths
+              </h4>
+              <div className="space-y-2">
+                {activeResumeAnalysis.strengths?.map((strength, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                    <CheckCircle className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <span className="text-slate-300">{strength}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-400" /> Areas for Improvement
+              </h4>
+              <div className="space-y-2">
+                {activeResumeAnalysis.improvements?.map((improvement, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                    <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <span className="text-slate-300">{improvement}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Star className="h-5 w-5 text-purple-400" /> Recommended Skills to Add
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {activeResumeAnalysis.recommendedSkills?.map((skill, i) => (
+                  <span key={i} className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-xl text-sm font-medium">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="bg-slate-800 rounded-2xl p-6 border border-white/5">
+              <h4 className="text-lg font-bold text-white mb-3">Assessment</h4>
+              <p className="text-slate-300 leading-relaxed">{activeResumeAnalysis.assessment}</p>
+            </div>
+          </section>
+        )}
         </section>
 
         <section className="space-y-6">
@@ -4302,10 +4842,18 @@ END:VCALENDAR`;
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={handleSaveResumeDraft}
-                  className="px-4 py-2 bg-blue-600 rounded-lg font-bold text-xs uppercase hover:bg-blue-500 text-white"
+                  onClick={handleAutoCorrectResumeDraft}
+                  disabled={autoCorrectingResumeDraft}
+                  className="px-4 py-2 bg-violet-600 rounded-lg font-bold text-xs uppercase hover:bg-violet-500 text-white disabled:opacity-60"
                 >
-                  Save Draft
+                  {autoCorrectingResumeDraft ? 'Auto Correcting...' : 'Auto Correct & Format'}
+                </button>
+                <button
+                  onClick={handleSaveResumeDraft}
+                  disabled={analyzingResumeDraft}
+                  className="px-4 py-2 bg-blue-600 rounded-lg font-bold text-xs uppercase hover:bg-blue-500 text-white disabled:opacity-60"
+                >
+                  {analyzingResumeDraft ? 'Saving...' : 'Save Draft'}
                 </button>
                 <button
                   onClick={handleExportResumeDraft}
@@ -4331,6 +4879,52 @@ END:VCALENDAR`;
             <div className="grid lg:grid-cols-2 gap-6">
               <div className={`${colors.bg.card} rounded-2xl p-6 border ${colors.border} space-y-6`}>
                 <div className="grid md:grid-cols-2 gap-4">
+                  <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-2">Writing Suggestions</p>
+                    {resumeDraftSuggestions.length ? (
+                      <ul className="space-y-2 text-sm text-slate-200">
+                        {resumeDraftSuggestions.map((suggestion, index) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <Sparkles size={14} className="mt-1 text-indigo-300 flex-shrink-0" />
+                            <span>{suggestion}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-slate-300">Your resume draft looks structurally strong. Add more impact metrics if needed.</p>
+                    )}
+                  </div>
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-2">Live ATS Score</p>
+                    {analyzingResumeDraft ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-slate-300">Analyzing your saved draft...</p>
+                        <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+                          <div className="h-full w-1/2 bg-gradient-to-r from-blue-500 to-purple-500 animate-pulse" />
+                        </div>
+                      </div>
+                    ) : activeResumeAnalysis?.atsScore ? (
+                      <div className="space-y-3">
+                        <div className="flex items-end justify-between gap-3">
+                          <div>
+                            <p className="text-4xl font-black text-blue-400">{activeResumeAnalysis.atsScore}%</p>
+                            <p className="text-xs text-slate-300 uppercase font-bold tracking-widest">
+                              Placement Probability {activeResumeAnalysis.placementProbability ? `• ${activeResumeAnalysis.placementProbability}%` : ''}
+                            </p>
+                          </div>
+                          <Target className="h-8 w-8 text-blue-300" />
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-700" style={{ width: `${activeResumeAnalysis.atsScore}%` }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-300">Save the draft to generate a live ATS score from the current resume text.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className={`${colors.text.muted} text-xs font-bold uppercase`}>Full Name</label>
                     <input
@@ -4355,9 +4949,44 @@ END:VCALENDAR`;
                     rows="4"
                     value={resumeDraft.summary}
                     onChange={(e) => handleResumeDraftChange('summary', e.target.value)}
+                    spellCheck
+                    lang="en"
                     className={`w-full mt-2 px-4 py-3 rounded-xl ${colors.bg.input} ${colors.border} ${colors.text.primary}`}
                     placeholder="Write a short professional summary..."
                   />
+                </div>
+
+                <div>
+                  <label className={`${colors.text.muted} text-xs font-bold uppercase`}>Resume Photo</label>
+                  <div className="mt-2 flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-200 dark:bg-slate-700 border border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center">
+                      {resumeDraft.photo ? (
+                        <img src={resumeDraft.photo} alt="Resume photo preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className={`text-[10px] font-bold ${colors.text.muted}`}>No Photo</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold uppercase cursor-pointer hover:bg-indigo-500">
+                        Upload Photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleResumePhotoUpload}
+                          className="hidden"
+                        />
+                      </label>
+                      {resumeDraft.photo && (
+                        <button
+                          type="button"
+                          onClick={removeResumePhoto}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'} ${colors.text.primary}`}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -4406,6 +5035,8 @@ END:VCALENDAR`;
                         placeholder="Key achievements"
                         value={exp.details}
                         onChange={(e) => handleResumeDraftListChange('experience', idx, 'details', e.target.value)}
+                        spellCheck
+                        lang="en"
                         className={`w-full px-3 py-2 rounded-lg ${colors.bg.input} ${colors.border} ${colors.text.primary}`}
                       />
                       {resumeDraft.experience.length > 1 && (
@@ -4657,114 +5288,237 @@ END:VCALENDAR`;
 
               <div className={`${colors.bg.card} rounded-2xl p-6 border ${colors.border}`}>
                 <h3 className={`text-xl font-black ${colors.text.primary} mb-4`}>Preview</h3>
-                <div className={`${isDark ? 'bg-black/30' : 'bg-gray-100'} rounded-xl p-6 text-sm space-y-5`}> 
-                  <div className="text-center space-y-1">
-                    <p className={`text-2xl font-black ${colors.text.primary}`}>{resumeDraft.fullName || 'Your Name'}</p>
-                    <p className={`${colors.text.secondary} font-semibold`}>{resumeDraft.title || 'Your Professional Title'}</p>
-                    <p className={`${colors.text.muted} text-xs`}>
-                      {(resumeDraft.links.email || 'email@example.com')}
-                      {resumeDraft.links.phone ? ` • ${resumeDraft.links.phone}` : ''}
-                      {resumeDraft.links.website ? ` • ${resumeDraft.links.website}` : ''}
-                    </p>
-                    <p className={`${colors.text.muted} text-xs`}>
-                      {resumeDraft.links.github ? `GitHub: ${resumeDraft.links.github}` : ''}
-                      {resumeDraft.links.linkedin ? ` • LinkedIn: ${resumeDraft.links.linkedin}` : ''}
-                    </p>
-                    {resumeDraft.links.website ? (
-                      <a
-                        href={resumeDraft.links.website.startsWith('http') ? resumeDraft.links.website : `https://${resumeDraft.links.website}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-xs uppercase hover:bg-indigo-500 transition-colors"
-                      >
-                        <ExternalLink size={14} /> View Portfolio
-                      </a>
-                    ) : (
-                      <button
-                        className="inline-flex items-center gap-2 mt-2 px-4 py-2 bg-gray-400 text-white rounded-lg font-bold text-xs uppercase opacity-60 cursor-not-allowed"
-                        disabled
-                        title="Add your website/portfolio link to enable"
-                      >
-                        <ExternalLink size={14} /> View Portfolio
-                      </button>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className={`${colors.text.muted} text-[10px] uppercase font-bold tracking-widest`}>Professional Summary</p>
-                    <p className={`${colors.text.primary} mt-2`}>{resumeDraft.summary || 'Write a crisp summary highlighting strengths, impact, and focus area.'}</p>
-                  </div>
-
-                  <div>
-                    <p className={`${colors.text.muted} text-[10px] uppercase font-bold tracking-widest`}>Skills</p>
-                    <p className={`${colors.text.primary} mt-2`}>{resumeDraft.skills.length ? resumeDraft.skills.join(' • ') : 'Add 6-10 key skills relevant to your role.'}</p>
-                  </div>
-
-                  <div>
-                    <p className={`${colors.text.muted} text-[10px] uppercase font-bold tracking-widest`}>Experience</p>
-                    <div className="space-y-3 mt-2">
-                      {resumeDraft.experience.map((exp, idx) => (
-                        <div key={idx}>
-                          <div className="flex items-center justify-between">
-                            <p className={`${colors.text.primary} font-bold`}>{exp.role || 'Role'} • {exp.company || 'Company'}</p>
-                            <p className={`${colors.text.muted} text-xs`}>{exp.period || 'Period'}</p>
+                {selectedResumeTemplate?.id === 2 ? (
+                <div className="rounded-xl overflow-hidden border border-gray-300 bg-white text-black shadow-xl">
+                  <div className="grid grid-cols-[280px_1fr] min-h-[980px]">
+                    <aside className="bg-[#6e9ca0] text-white flex flex-col">
+                      <div className="bg-[#8fb8bb] h-[280px] flex items-end justify-center p-5 overflow-hidden">
+                        {resumeDraft.photo ? (
+                          <img
+                            src={resumeDraft.photo}
+                            alt={resumeDraft.fullName || 'Resume photo'}
+                            className="w-full h-full object-cover object-top"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-white/10">
+                            <span className="text-5xl font-black tracking-wider">
+                              {String(resumeDraft.fullName || studentDetails.name || 'AA')
+                                .split(' ')
+                                .filter(Boolean)
+                                .slice(0, 2)
+                                .map((part) => part[0]?.toUpperCase() || '')
+                                .join('') || 'AA'}
+                            </span>
                           </div>
-                          {exp.details && <p className={`${colors.text.primary} text-xs mt-1`}>{exp.details}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                        )}
+                      </div>
 
-                  <div>
-                    <p className={`${colors.text.muted} text-[10px] uppercase font-bold tracking-widest`}>Projects</p>
-                    <div className="space-y-2 mt-2">
-                      {resumeDraft.projects.map((proj, idx) => (
-                        <div key={idx}>
-                          <p className={`${colors.text.primary} font-bold`}>{proj.name || 'Project Name'}</p>
-                          {proj.link && <p className={`${colors.text.secondary} text-xs`}>{proj.link}</p>}
-                          {proj.details && <p className={`${colors.text.primary} text-xs mt-1`}>{proj.details}</p>}
+                      <div className="px-6 py-6 space-y-5 text-[13px] leading-relaxed">
+                        <div className="space-y-4">
+                          <p className="flex items-start gap-3 break-all">
+                            <span className="text-[#ffbe6f] font-black">✉</span>
+                            <span>{resumeDraft.links.email || studentDetails.email || 'ananya.verma@email.com'}</span>
+                          </p>
+                          <p className="flex items-start gap-3">
+                            <span className="text-[#ffbe6f] font-black">◉</span>
+                            <span>{resumeDraft.links.phone || studentDetails.phone || '+91-0000000000'}</span>
+                          </p>
+                          <p className="flex items-start gap-3 break-all">
+                            <span className="text-[#ffbe6f] font-black">in</span>
+                            <span>{resumeDraft.links.linkedin || 'linkedin.com/in/username'}</span>
+                          </p>
+                          <p className="flex items-start gap-3 break-all">
+                            <span className="text-[#ffbe6f] font-black">⌂</span>
+                            <span>{resumeDraft.links.github || 'github.com/username'}</span>
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div>
-                    <p className={`${colors.text.muted} text-[10px] uppercase font-bold tracking-widest`}>Education</p>
-                    <div className="space-y-2 mt-2">
-                      {resumeDraft.education.map((edu, idx) => (
-                        <div key={idx}>
-                          <p className={`${colors.text.primary} font-bold`}>{edu.degree || 'Degree'} • {edu.school || 'School'}</p>
-                          <p className={`${colors.text.secondary} text-xs`}>{edu.year || 'Year'}</p>
+                        <div>
+                          <h4 className="text-[21px] font-black uppercase tracking-wide mb-3">Skills</h4>
+                          <ul className="list-disc pl-5 space-y-2 text-[12.5px]">
+                            {(resumeDraft.skills.length ? resumeDraft.skills : ['Programming Languages: Python, Java, C#', 'Tools & Frameworks: TensorFlow, Unity, Git, SQL', 'Soft Skills: Analytical Thinking, Problem Solving, Collaboration']).map((skill, idx) => (
+                              <li key={idx}>{skill}</li>
+                            ))}
+                          </ul>
                         </div>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div>
-                    <p className={`${colors.text.muted} text-[10px] uppercase font-bold tracking-widest`}>Certifications</p>
-                    <div className="space-y-2 mt-2">
-                      {resumeDraft.certifications.map((cert, idx) => (
-                        <div key={idx}>
-                          <p className={`${colors.text.primary} font-bold`}>{cert.name || 'Certification'} • {cert.issuer || 'Issuer'}</p>
-                          <p className={`${colors.text.secondary} text-xs`}>{cert.year || 'Year'}{cert.credentialId ? ` • ID: ${cert.credentialId}` : ''}</p>
+                        <div>
+                          <h4 className="text-[21px] font-black uppercase tracking-wide mb-3">Certifications</h4>
+                          <ul className="list-disc pl-5 space-y-2 text-[12.5px]">
+                            {((resumeDraft.certifications || []).map((cert) => cert.name).filter(Boolean).length
+                              ? (resumeDraft.certifications || []).map((cert) => cert.name).filter(Boolean)
+                              : ['HCL GUVI Machine Learning Certificate', 'Udemy Advanced Python Programming', 'Coursera Full Stack Web Development']
+                            ).map((certName, idx) => (
+                              <li key={idx}>{certName}</li>
+                            ))}
+                          </ul>
                         </div>
-                      ))}
-                    </div>
-                  </div>
 
-                  <div>
-                    <p className={`${colors.text.muted} text-[10px] uppercase font-bold tracking-widest`}>Awards</p>
-                    <div className="space-y-2 mt-2">
-                      {resumeDraft.awards.map((award, idx) => (
-                        <div key={idx}>
-                          <p className={`${colors.text.primary} font-bold`}>{award.title || 'Award Title'} • {award.issuer || 'Issuer'}</p>
-                          <p className={`${colors.text.secondary} text-xs`}>{award.year || 'Year'}</p>
-                          {award.details && <p className={`${colors.text.primary} text-xs mt-1`}>{award.details}</p>}
+                        <div>
+                          <h4 className="text-[21px] font-black uppercase tracking-wide mb-3">Achievements</h4>
+                          <ul className="list-disc pl-5 space-y-2 text-[12.5px]">
+                            {(resumeDraft.awards.length
+                              ? resumeDraft.awards.map((award) => award.title).filter(Boolean)
+                              : ['Winner, National Hackathon 2023', 'Best Project Award, DEF University 2024']
+                            ).map((awardName, idx) => (
+                              <li key={idx}>{awardName}</li>
+                            ))}
+                          </ul>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    </aside>
+
+                    <main className="px-8 py-8">
+                      <div className="bg-[#f7ad63] px-6 py-8 mb-10">
+                        <p className="text-[46px] font-black leading-none">{resumeDraft.fullName || studentDetails.name || 'Ananya Verma'}</p>
+                        <p className="text-[24px] mt-2 font-medium">{resumeDraft.title || 'Software Developer'}</p>
+                      </div>
+
+                      <section className="mb-8">
+                        <h4 className="text-[21px] font-black uppercase mb-3">Career Objective</h4>
+                        <p className="text-[15px] leading-7 max-w-[610px]">
+                          {resumeDraft.summary || 'Enthusiastic fresher seeking a software development role to apply project experience in AI, web development, and data analysis, and contribute to innovative solutions.'}
+                        </p>
+                      </section>
+
+                      <section className="mb-8">
+                        <h4 className="text-[21px] font-black uppercase mb-4">Education</h4>
+                        <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-8 text-[15px]">
+                          {(resumeDraft.education.length ? resumeDraft.education : [{ degree: 'B.Tech in Computer Science', school: 'DEF University', year: '2025' }]).map((edu, idx) => (
+                            <React.Fragment key={idx}>
+                              <div>
+                                <p className="font-bold">{edu.school || 'DEF University'}</p>
+                                <p className="font-bold">{edu.year || '2025'}</p>
+                              </div>
+                              <div>
+                                <p>{edu.degree || 'B.Tech in Computer Science'}</p>
+                                {idx === 0 && (
+                                  <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-8 mt-4 text-[15px]">
+                                    <p className="font-bold">GPA:</p>
+                                    <p>{studentDetails.cgpa ? `${studentDetails.cgpa}/10` : '8.7/10'}</p>
+                                    <p className="font-bold">Relevant Coursework:</p>
+                                    <p>Machine Learning, Database Management, Web Technologies</p>
+                                  </div>
+                                )}
+                              </div>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className="mb-8">
+                        <h4 className="text-[21px] font-black uppercase mb-4">Project Experience</h4>
+                        <div className="grid grid-cols-[210px_1fr] gap-y-5 gap-x-8 text-[15px]">
+                          {(resumeDraft.projects.length ? resumeDraft.projects : [
+                            { name: 'AI Chatbot for Customer Support', details: 'Developed using Python & NLP\nReduced response time by 40% and improved customer satisfaction' },
+                            { name: 'E-Commerce Recommendation Engine', details: 'Built using collaborative filtering in Python\nIncreased recommendation accuracy by 25%' },
+                            { name: 'Mobile Game App', details: 'Designed & deployed using Unity and C#\nAchieved 500+ downloads on Google Play Store' }
+                          ]).map((proj, idx) => (
+                            <React.Fragment key={idx}>
+                              <div className="font-semibold">{proj.name || 'Project Name'}</div>
+                              <ul className="list-disc pl-5 space-y-1">
+                                {splitBulletPoints(proj.details || '').length ? splitBulletPoints(proj.details).map((line, pointIdx) => <li key={pointIdx}>{line}</li>) : <li>Project details here</li>}
+                              </ul>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section>
+                        <h4 className="text-[21px] font-black uppercase mb-4">Internship</h4>
+                        <div className="grid grid-cols-[160px_1fr] gap-y-3 gap-x-8 text-[15px]">
+                          <p className="font-semibold">3 months</p>
+                          <div>
+                            <p className="font-semibold">Software Development Intern at GHI Tech</p>
+                            <p className="mt-2 text-[14px] leading-7">Developed backend APIs for client applications Assisted in testing and debugging modules</p>
+                          </div>
+                        </div>
+                      </section>
+                    </main>
                   </div>
                 </div>
+                ) : (
+                <div className="rounded-xl bg-white text-black p-6 text-[13px] leading-relaxed border border-gray-300 font-serif space-y-4">
+                  <div className="text-center">
+                    <p className="text-[30px] font-bold tracking-wide uppercase">{resumeDraft.fullName || 'FIRST LAST'}</p>
+                    <p className="text-[13px] mt-1">
+                      {[
+                        resumeDraft.links.website || 'City, State',
+                        resumeDraft.links.email,
+                        resumeDraft.links.phone,
+                        resumeDraft.links.linkedin
+                      ].filter(Boolean).join(' • ') || 'city@example.com • (000) 000-0000 • linkedin.com/in/username'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-bold uppercase border-b border-gray-500 pb-1">Education</p>
+                    {resumeDraft.education.map((edu, idx) => (
+                      <div key={idx} className="mt-2">
+                        <div className="flex justify-between gap-3">
+                          <p className="font-bold">{edu.school || 'University Name'}</p>
+                          <p>{edu.year || ''}</p>
+                        </div>
+                        <p>{edu.degree || 'Degree and Major'}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <p className="font-bold uppercase border-b border-gray-500 pb-1">Professional Experience</p>
+                    {resumeDraft.experience.map((exp, idx) => (
+                      <div key={idx} className="mt-2">
+                        <div className="flex justify-between gap-3">
+                          <p className="font-bold">{exp.company || 'Company Name'}</p>
+                          <p>{exp.period || ''}</p>
+                        </div>
+                        <p>{exp.role || 'Role Title'}</p>
+                        {splitBulletPoints(exp.details).map((point, pointIdx) => (
+                          <p key={pointIdx} className="pl-4">• {point}</p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <p className="font-bold uppercase border-b border-gray-500 pb-1">Activities and Leadership</p>
+                    {resumeDraft.awards.map((item, idx) => (
+                      <div key={idx} className="mt-2">
+                        <div className="flex justify-between gap-3">
+                          <p className="font-bold">{item.title || 'Activity / Leadership'}</p>
+                          <p>{item.year || ''}</p>
+                        </div>
+                        {item.issuer && <p>{item.issuer}</p>}
+                        {splitBulletPoints(item.details).map((point, pointIdx) => (
+                          <p key={pointIdx} className="pl-4">• {point}</p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <p className="font-bold uppercase border-b border-gray-500 pb-1">University Projects</p>
+                    {resumeDraft.projects.map((proj, idx) => (
+                      <div key={idx} className="mt-2">
+                        <div className="flex justify-between gap-3">
+                          <p className="font-bold">{proj.name || 'Project Name'}</p>
+                          <p>{proj.link || ''}</p>
+                        </div>
+                        {splitBulletPoints(proj.details).map((point, pointIdx) => (
+                          <p key={pointIdx} className="pl-4">• {point}</p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <p className="font-bold uppercase border-b border-gray-500 pb-1">Other</p>
+                    <p className="pl-4">• <span className="font-bold">Technical:</span> {resumeDraft.skills.length ? resumeDraft.skills.join(', ') : 'Add technical skills'}</p>
+                    <p className="pl-4">• <span className="font-bold">Certifications:</span> {(resumeDraft.certifications || []).map((cert) => cert.name).filter(Boolean).join(', ') || 'Add certifications'}</p>
+                    <p className="pl-4">• <span className="font-bold">Summary:</span> {resumeDraft.summary || 'Add a short summary'}</p>
+                  </div>
+                </div>
+                )}
               </div>
             </div>
           </section>
@@ -4789,17 +5543,20 @@ END:VCALENDAR`;
                     <div>
                       <h3 className={`text-xl font-black ${colors.text.primary}`}>{cert.name}</h3>
                       <p className={`${colors.text.secondary} text-xs font-medium`}>Issued by {cert.issuer}</p>
+                      <p className={`${colors.text.muted} text-[10px] font-bold uppercase tracking-widest mt-1`}>
+                        {String(cert.source || 'student').toUpperCase()} UPLOAD
+                      </p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
                       <p className={`${colors.text.muted} font-bold uppercase text-[10px] tracking-tight`}>Issue Date</p>
-                      <p className={`text-lg font-black ${colors.text.primary}`}>{cert.issueDate}</p>
+                      <p className={`text-lg font-black ${colors.text.primary}`}>{cert.date ? new Date(cert.date).toLocaleDateString() : (cert.issueDate ? new Date(cert.issueDate).toLocaleDateString() : 'N/A')}</p>
                     </div>
                     <div>
                       <p className={`${colors.text.muted} font-bold uppercase text-[10px] tracking-tight`}>Credential ID</p>
-                      <p className={`text-lg font-black text-emerald-400`}>{cert.credentialId}</p>
+                      <p className={`text-lg font-black text-emerald-400`}>{cert.credentialId || 'N/A'}</p>
                     </div>
                   </div>
 

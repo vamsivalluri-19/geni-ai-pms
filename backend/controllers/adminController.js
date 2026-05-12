@@ -60,6 +60,10 @@ const defaultSettings = {
   institutionName: 'Gen AI Placement Management System'
 };
 
+// Connection / operation defaults for the control center
+defaultSettings.connectionMode = 'working';
+defaultSettings.connectTarget = 'all';
+
 const defaultTemplates = [
   {
     key: 'offer-letter',

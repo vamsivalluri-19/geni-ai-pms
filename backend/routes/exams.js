@@ -18,6 +18,6 @@ router.post('/', verifyToken, authorizeRole('hr', 'admin', 'staff'), createExam)
 router.post('/:id/submit', verifyToken, authorizeRole('student'), submitExam);
 router.get('/submissions/my', verifyToken, authorizeRole('student'), getMySubmissions);
 router.get('/submissions/all', verifyToken, authorizeRole('hr', 'staff', 'admin'), getSubmissions);
-router.patch('/submissions/:id/review', verifyToken, authorizeRole('hr'), reviewSubmission);
+router.patch('/submissions/:id/review', verifyToken, authorizeRole('hr', 'staff', 'admin'), reviewSubmission);
 
 export default router;

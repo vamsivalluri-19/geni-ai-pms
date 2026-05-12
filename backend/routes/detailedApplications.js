@@ -4,6 +4,7 @@ import {
   saveDetailedApplicationForm,
   getMyDetailedApplicationForm,
   getDetailedApplicationFormByStudent,
+  getDetailedApplicationFormByEmail,
   getAllDetailedApplicationForms
 } from '../controllers/detailedApplicationController.js';
 
@@ -15,6 +16,7 @@ router.get('/my-form', verifyToken, getMyDetailedApplicationForm);
 
 // Staff/HR/Admin routes
 router.get('/all', verifyToken, authorizeRole('admin', 'hr', 'recruiter', 'staff'), getAllDetailedApplicationForms);
+router.get('/by-email/:email', verifyToken, authorizeRole('admin', 'hr', 'recruiter', 'staff'), getDetailedApplicationFormByEmail);
 router.get('/:studentId', verifyToken, authorizeRole('admin', 'hr', 'recruiter', 'staff'), getDetailedApplicationFormByStudent);
 
 export default router;

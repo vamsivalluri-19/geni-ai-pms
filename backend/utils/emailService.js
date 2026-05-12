@@ -5,6 +5,7 @@ dotenv.config();
 
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
+let emailAuthDisabled = false;
 
 // Create transporter
 const createTransporter = () => {
@@ -32,6 +33,10 @@ const createTransporter = () => {
 // Send email notification
 export const sendEmail = async ({ to, subject, html }) => {
   try {
+    if (emailAuthDisabled) {
+      return { success: false, message: 'Email auth disabled for current runtime due to previous SMTP auth failure' };
+    }
+
     if (!EMAIL_USER || !EMAIL_PASSWORD) {
       console.warn('Email credentials not configured. Skipping email notification.');
       return { success: false, message: 'Email not configured' };
@@ -50,7 +55,16 @@ export const sendEmail = async ({ to, subject, html }) => {
     console.log('Email sent successfully:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending email:', error);
+    const code = error?.code || '';
+    const message = error?.message || 'Unknown email error';
+
+    if (code === 'EAUTH') {
+      emailAuthDisabled = true;
+      console.error('Email auth failed (EAUTH). Disabling further email attempts for this runtime. Check EMAIL_USER/EMAIL_PASS app-password settings.');
+      return { success: false, error: message };
+    }
+
+    console.error('Error sending email:', message);
     return { success: false, error: error.message };
   }
 };

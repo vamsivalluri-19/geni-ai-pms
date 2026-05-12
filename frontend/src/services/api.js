@@ -1,5 +1,30 @@
+/* ===============================
+   OFFER APIs
+================================ */
+export const offerAPI = {
+  create: (data) => api.post("/offers", data),
+  getAll: () => api.get("/offers"),
+  getById: (id) => api.get(`/offers/${id}`),
+  update: (id, data) => api.put(`/offers/${id}`, data),
+  send: (id, data) => api.post(`/offers/${id}/send`, data),
+  track: (id) => api.get(`/offers/${id}/track`),
+};
+/* ===============================
+   INTERVIEW APIs
+================================ */
+export const interviewAPI = {
+  schedule: (data) => api.post("/interviews", data),
+  getAll: () => api.get("/interviews"),
+  getById: (id) => api.get(`/interviews/${id}`),
+  update: (id, data) => api.put(`/interviews/${id}`, data),
+  updateRoom: (id, data) => api.patch(`/interviews/${id}/room`, data),
+};
 import axios from "axios";
 import { API_BASE_URL } from "../config/apiBase";
+
+const hrRefreshChannel = typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function'
+  ? new window.BroadcastChannel('hr-dashboard-refresh')
+  : null;
 
 /* ===============================
    Axios instance
@@ -23,6 +48,43 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+// Dispatch a global refresh event for HR dashboard when mutation responses complete
+api.interceptors.response.use(
+  (response) => {
+    try {
+      const method = (response.config && response.config.method || '').toLowerCase();
+      if (['post', 'put', 'patch', 'delete'].includes(method)) {
+        if (typeof window !== 'undefined' && window?.CustomEvent) {
+          window.dispatchEvent(new CustomEvent('hr:refresh'));
+        }
+        if (hrRefreshChannel) {
+          hrRefreshChannel.postMessage({ type: 'hr:refresh' });
+        }
+      }
+    } catch (e) {
+      // swallow errors to avoid breaking responses
+    }
+    return response;
+  },
+  (error) => {
+    try {
+      const cfg = error?.config;
+      const method = (cfg && cfg.method || '').toLowerCase();
+      if (['post', 'put', 'patch', 'delete'].includes(method)) {
+        if (typeof window !== 'undefined' && window?.CustomEvent) {
+          window.dispatchEvent(new CustomEvent('hr:refresh'));
+        }
+        if (hrRefreshChannel) {
+          hrRefreshChannel.postMessage({ type: 'hr:refresh' });
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return Promise.reject(error);
+  }
 );
 
 /* ===============================
@@ -84,6 +146,7 @@ export const jobAPI = {
   createJob: (data) => api.post("/jobs", data), // alias for dashboard compatibility
   update: (id, data) => api.put(`/jobs/${id}`, data),
   delete: (id) => api.delete(`/jobs/${id}`),
+  clone: (id) => api.post(`/jobs/${id}/clone`),
 };
 
 /* ===============================
@@ -98,6 +161,7 @@ export const applicationsAPI = {
   getJobApplications: (jobId) => api.get(`/applications/job/${jobId}`),
   create: (data) => api.post("/applications", data),
   updateStatus: (id, data) => api.put(`/applications/${id}`, data),
+  bulkUpdateStatus: (data) => api.post("/applications/bulk-update-status", data),
 };
 
 /* ===============================
@@ -109,6 +173,8 @@ export const jobRequisitionsAPI = {
   create: (data) => api.post("/job-requisitions", data),
   update: (id, data) => api.put(`/job-requisitions/${id}`, data),
   delete: (id) => api.delete(`/job-requisitions/${id}`),
+  approve: (id) => api.post(`/job-requisitions/${id}/approve`),
+  reject: (id) => api.post(`/job-requisitions/${id}/reject`),
 };
 
 /* ===============================
@@ -233,6 +299,7 @@ export const detailedApplicationsAPI = {
   getMyForm: () => api.get("/detailed-applications/my-form"),
   getAll: () => api.get("/detailed-applications/all"),
   getByStudent: (studentId) => api.get(`/detailed-applications/${studentId}`),
+  getByEmail: (email) => api.get(`/detailed-applications/by-email/${encodeURIComponent(email)}`),
 };
 
 /* ===============================
@@ -264,6 +331,8 @@ export const placementStatsAPI = {
 ================================ */
 export const notificationsAPI = {
   getNotifications: (unreadOnly = false, limit = 50) => api.get("/notifications", { params: { unreadOnly, limit } }),
+  getAllNotificationsForHR: (limit = 100, unreadOnly = false, type = null, source = null) => 
+    api.get("/notifications/all-notifications", { params: { limit, unreadOnly, type, source } }),
   markAsRead: (notificationId) => api.put(`/notifications/${notificationId}/read`),
   markAllAsRead: () => api.put("/notifications/read-all"),
   deleteNotification: (notificationId) => api.delete(`/notifications/${notificationId}`),

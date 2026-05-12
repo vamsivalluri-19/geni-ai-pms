@@ -100,10 +100,28 @@ export const submitExam = async (req, res) => {
       });
     }
 
+    const normalizedAnswers = Array.isArray(answers)
+      ? answers.map((item, index) => {
+          if (item && typeof item === 'object') {
+            return {
+              questionIndex: Number.isFinite(Number(item.questionIndex)) ? Number(item.questionIndex) : index,
+              answer: typeof item.answer === 'string' ? item.answer : '',
+              selectedOption: Number.isFinite(Number(item.selectedOption)) ? Number(item.selectedOption) : undefined,
+              language: typeof item.language === 'string' ? item.language : undefined
+            };
+          }
+
+          return {
+            questionIndex: index,
+            answer: typeof item === 'string' ? item : ''
+          };
+        })
+      : [];
+
     const submission = await ExamSubmission.create({
       exam: examId,
       studentUser: req.user.id,
-      answers,
+      answers: normalizedAnswers,
       status: 'submitted',
       result: 'pending'
     });

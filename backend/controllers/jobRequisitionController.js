@@ -1,3 +1,34 @@
+// Approve job requisition
+export const approveJobRequisition = async (req, res) => {
+  try {
+    const jobRequisition = await JobRequisition.findById(req.params.id);
+    if (!jobRequisition) {
+      return res.status(404).json({ success: false, message: 'Job requisition not found' });
+    }
+    jobRequisition.status = 'In Review';
+    jobRequisition.updatedAt = new Date();
+    await jobRequisition.save();
+    res.status(200).json({ success: true, message: 'Job requisition approved', jobRequisition });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Reject job requisition
+export const rejectJobRequisition = async (req, res) => {
+  try {
+    const jobRequisition = await JobRequisition.findById(req.params.id);
+    if (!jobRequisition) {
+      return res.status(404).json({ success: false, message: 'Job requisition not found' });
+    }
+    jobRequisition.status = 'Closed';
+    jobRequisition.updatedAt = new Date();
+    await jobRequisition.save();
+    res.status(200).json({ success: true, message: 'Job requisition rejected', jobRequisition });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 import JobRequisition from '../models/JobRequisition.js';
 import User from '../models/User.js';
 import { notifyJobRequisition } from '../utils/emailService.js';

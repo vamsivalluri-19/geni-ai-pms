@@ -4,10 +4,20 @@ import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Health check (no auth required)
+router.get('/health', (req, res) => {
+  res.json({ status: 'Notifications route is loaded' });
+});
+
 // All routes require authentication
 router.use(verifyToken);
 
-// Get notifications
+// More specific routes first
+// Get all notifications for HR (from all sources)
+router.get('/all-notifications', notificationController.getAllNotificationsForHR);
+
+// General routes after specific ones
+// Get notifications for current user
 router.get('/', notificationController.getNotifications);
 
 // Backward-compatible endpoint used by older frontend code

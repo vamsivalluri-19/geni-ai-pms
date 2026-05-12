@@ -2,6 +2,7 @@ import Notification from '../models/Notification.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 
+
 const ALLOWED_NOTIFICATION_TYPES = new Set([
   'email',
   'application',
@@ -71,6 +72,8 @@ export const sendBulkNotification = async (req, res) => {
       title: safeTitle,
       message: safeMessage
     }));
+
+
 
     let notifications = [];
     try {
@@ -279,5 +282,82 @@ export const sendDirectNotification = async (req, res) => {
   } catch (error) {
     console.error('Error sending direct notification:', error);
     res.status(500).json({ message: 'Failed to send direct notification', error: error.message });
+  }
+};
+
+// Get all notifications for HR (from staff, students, admin, and system)
+export const getAllNotificationsForHR = async (req, res) => {
+  try {
+    const userRole = req.user?.role || '';
+    const normalizedRole = String(userRole).toLowerCase();
+
+    // Only HR, Admin, and Staff can view all notifications
+    if (!['hr', 'admin', 'staff'].includes(normalizedRole)) {
+      return res.status(403).json({ message: 'Unauthorized: Only HR, Admin, and Staff can view all notifications' });
+    }
+
+    const { limit = '100', unreadOnly = 'false', type, source } = req.query;
+    const query = {};
+
+    if (String(unreadOnly).toLowerCase() === 'true') {
+      query.read = false;
+    }
+
+    if (type) {
+      query.type = String(type).toLowerCase();
+    }
+
+    try {
+      // Fetch notifications with source information, using lean for better performance
+      let notifications = await Notification.find(query)
+        .sort({ createdAt: -1 })
+        .limit(parseLimit(limit))
+        .populate({
+          path: 'userId',
+          select: 'role email name department',
+          options: { lean: true }
+        })
+        .exec();
+
+      // Ensure notifications is an array
+      if (!Array.isArray(notifications)) {
+        notifications = [];
+      }
+
+      // If source filter is specified, filter by the sender's role
+      if (source) {
+        const sourceRole = String(source).toLowerCase();
+        notifications = notifications.filter((notif) => {
+          const senderRole = String(notif?.userId?.role || '').toLowerCase();
+          return senderRole === sourceRole;
+        });
+      }
+
+      const unreadCount = await Notification.countDocuments({ ...query, read: false });
+      const totalCount = await Notification.countDocuments(query);
+
+      return res.status(200).json({
+        notifications: notifications || [],
+        unreadCount,
+        totalCount
+      });
+    } catch (dbError) {
+      console.error('Database error fetching notifications:', dbError.message);
+      // Return empty list on DB error instead of failing
+      return res.status(200).json({
+        notifications: [],
+        unreadCount: 0,
+        totalCount: 0
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching all notifications for HR:', error.message);
+    // Return empty list instead of error to prevent UI from breaking
+    return res.status(200).json({
+      notifications: [],
+      unreadCount: 0,
+      totalCount: 0,
+      warning: 'Unable to fetch notifications'
+    });
   }
 };

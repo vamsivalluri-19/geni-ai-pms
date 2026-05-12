@@ -325,16 +325,11 @@ export default function VideoConference({ roomId, user, onLeave, autoStart, comp
     }
   };
   const hasRemoteParticipants = remoteStreams.length > 0;
-  const videoGridClass = hasRemoteParticipants
-    ? (layout === 'half'
-      ? 'grid grid-cols-1 md:grid-cols-2 gap-3 p-3 h-full'
-      : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3 h-full')
-    : 'grid grid-cols-1 md:grid-cols-2 gap-3 p-3 h-full';
 
-  const localTileClass = hasRemoteParticipants
-    ? 'border-2 border-indigo-500 bg-black rounded-xl overflow-hidden relative min-h-[180px]'
-    : 'border-2 border-indigo-500 bg-black rounded-xl overflow-hidden relative min-h-[180px]';
-  const remoteTileClass = 'border-2 border-blue-400 bg-black rounded-xl overflow-hidden relative min-h-[180px]';
+  // Always show two camera tiles side by side for 1:1 interviews
+  const videoGridClass = 'grid grid-cols-1 md:grid-cols-2 gap-6 p-4 h-full items-center justify-center';
+  const localTileClass = 'flex flex-col items-center justify-center border-2 border-indigo-500 bg-black rounded-2xl overflow-hidden relative aspect-video min-h-[220px] max-h-[340px]';
+  const remoteTileClass = 'flex flex-col items-center justify-center border-2 border-blue-400 bg-black rounded-2xl overflow-hidden relative aspect-video min-h-[220px] max-h-[340px]';
 
   const rawRole = String(user?.role || '').toLowerCase().trim();
   const currentRole = rawRole.includes('student')
@@ -409,12 +404,27 @@ export default function VideoConference({ roomId, user, onLeave, autoStart, comp
     }
   };
 
+  // Improved: Always attach remote stream and force update
   const attachStream = (element, stream) => {
     if (!element || !stream) return;
     if (element.srcObject !== stream) {
       element.srcObject = stream;
+    } else {
+      // Force re-attach in case of browser issues
+      element.srcObject = null;
+      element.srcObject = stream;
     }
   };
+
+  // Force update remote video refs when remoteStreams change
+  useEffect(() => {
+    remoteStreams.forEach((remote) => {
+      const videoEl = document.getElementById(`remote-video-${remote.userId}`);
+      if (videoEl) {
+        attachStream(videoEl, remote.stream);
+      }
+    });
+  }, [remoteStreams]);
 
   if (!callStarted) {
     return (
@@ -454,52 +464,50 @@ export default function VideoConference({ roomId, user, onLeave, autoStart, comp
           }}
         >
           <div className={videoGridClass}>
+            {/* Local Camera */}
             <div className={localTileClass}>
               <video
                 ref={localVideoRef}
                 autoPlay
                 muted
                 playsInline
-                className="w-full h-full"
-                style={{ boxShadow: '0 4px 24px #0004', objectFit: 'cover' }}
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ backgroundColor: "#000" }}
               />
               {!cameraOn && !screensharing && (
-                <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
-                  <span className="text-white text-sm font-bold px-3 py-1 rounded-lg bg-black/60">Camera is off</span>
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <span className="text-white text-base font-bold px-4 py-2 rounded-lg bg-black/70">Camera is off</span>
                 </div>
               )}
-              <span className="absolute bottom-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-black/60 text-white">
-                You
-              </span>
+              <span className="absolute bottom-4 left-4 text-xs font-bold px-4 py-1.5 rounded-lg bg-indigo-600/90 text-white shadow-lg backdrop-blur z-20">You</span>
             </div>
 
-            {remoteStreams.map((remote) => (
-              <div className={remoteTileClass} key={remote.userId}>
-                <video
-                  autoPlay
-                  playsInline
-                  ref={(element) => attachStream(element, remote.stream)}
-                  className="w-full h-full"
-                  style={{ boxShadow: '0 4px 24px #0004', objectFit: 'cover' }}
-                />
-                <span className="absolute bottom-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-black/60 text-white">
-                  {participants.find((p) => p.userId === remote.userId)?.user?.name || 'Participant'}
-                </span>
-              </div>
-            ))}
-
-            {!hasRemoteParticipants && (
+            {/* Remote Camera or Placeholder */}
+            {remoteStreams.length > 0 ? (
+              remoteStreams.map((remote) => (
+                <div className={remoteTileClass} key={remote.userId}>
+                  <video
+                    id={`remote-video-${remote.userId}`}
+                    autoPlay
+                    playsInline
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{ backgroundColor: "#000" }}
+                  />
+                  <span className="absolute bottom-4 left-4 text-xs font-bold px-4 py-1.5 rounded-lg bg-blue-600/90 text-white shadow-lg backdrop-blur z-20">
+                    {participants.find((p) => p.userId === remote.userId)?.user?.name || 'Participant'}
+                  </span>
+                </div>
+              ))
+            ) : (
               <div className={remoteTileClass}>
-                <div className="absolute inset-0 bg-slate-900/85 flex flex-col items-center justify-center text-center px-6">
+                <div className="flex flex-col items-center justify-center h-full w-full text-center px-6">
                   <div className="w-16 h-16 rounded-full bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center mb-3">
-                    <span className="text-indigo-300 text-xl font-black">OP</span>
+                    <span className="text-indigo-300 text-2xl font-black">OP</span>
                   </div>
-                  <p className="text-slate-100 font-semibold">Remote participant screen</p>
+                  <p className="text-slate-100 font-semibold text-lg">Remote participant screen</p>
                   <p className="text-slate-300 text-xs mt-1">Waiting for the other person to join this room</p>
                 </div>
-                <span className="absolute bottom-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-black/60 text-white">
-                  Opposite Person
-                </span>
+                <span className="absolute bottom-4 left-4 text-xs font-bold px-4 py-1.5 rounded-lg bg-blue-600/90 text-white shadow-lg backdrop-blur z-20">Opposite Person</span>
               </div>
             )}
           </div>

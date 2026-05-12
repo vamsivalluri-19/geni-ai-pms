@@ -1,4 +1,6 @@
 import Onboarding from '../models/Onboarding.js';
+import { createNotification } from './notificationController.js';
+import User from '../models/User.js';
 
 export const createOnboarding = async (req, res) => {
   try {
@@ -15,6 +17,26 @@ export const createOnboarding = async (req, res) => {
       ...req.body,
       createdBy: req.user?.id
     });
+
+    // Create notification for HR
+    try {
+      const hrStaff = await User.find({ role: { $in: ['hr', 'admin', 'staff'] } }).select('_id');
+      if (hrStaff.length > 0) {
+        const promises = hrStaff.map((user) => 
+          createNotification(
+            user._id,
+            'system',
+            'New Onboarding Task',
+            `Onboarding task created for ${employeeName} - Position: ${position}`,
+            onboarding._id,
+            'Onboarding'
+          )
+        );
+        await Promise.all(promises);
+      }
+    } catch (notificationError) {
+      console.error('Error creating onboarding notification:', notificationError);
+    }
 
     res.status(201).json({
       success: true,

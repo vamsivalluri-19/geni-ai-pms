@@ -78,8 +78,8 @@ const StaffDashboard = () => {
   const [filterBranch, setFilterBranch] = useState('All');
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [notificationMessage, setNotificationMessage] = useState('');
-  const [commsTemplate, setCommsTemplate] = useState('deadline-reminder');
   const [quickActionResult, setQuickActionResult] = useState('');
+  const [actionToast, setActionToast] = useState('');
   const [mentorAssignments, setMentorAssignments] = useState({});
   const [riskActionMessage, setRiskActionMessage] = useState(null);
   const [riskReminderLoadingId, setRiskReminderLoadingId] = useState('');
@@ -159,6 +159,12 @@ const StaffDashboard = () => {
       { id: 'DRV-5', label: 'Attendance desk prepared', done: false }
     ]
   });
+  // Drives catalog (mocked) with lightweight metrics
+  const [driveList] = useState([
+    { id: 'Tech Spring Drive 2026', label: 'Tech Spring Drive 2026', date: '2026-03-10', venue: 'Main Auditorium', company: 'TechCorp', openings: 8, registered: 124, interviewsScheduled: 32, panel: ['Dr. Sharma', 'Prof. Verma'] },
+    { id: 'Campus Connect 2026', label: 'Campus Connect 2026', date: '2026-04-05', venue: 'Conference Hall B', company: 'InnoSoft', openings: 12, registered: 98, interviewsScheduled: 20, panel: ['Dr. Gupta', 'Ms. Rao'] },
+    { id: 'Spring Internship Drive 2026', label: 'Spring Internship Drive 2026', date: '2026-05-14', venue: 'Lab 3', company: 'BuildIt', openings: 5, registered: 210, interviewsScheduled: 48, panel: ['Prof. Verma', 'Ms. Singh'] }
+  ]);
   const [staffAuditTrail, setStaffAuditTrail] = useState([
     { id: 'AUD-1', actor: user?.name || 'Staff', action: 'Verified KYC document', target: 'KYC-003', time: '10 mins ago' },
     { id: 'AUD-2', actor: user?.name || 'Staff', action: 'Sent bulk notification', target: '42 students', time: '45 mins ago' },
@@ -484,12 +490,11 @@ const StaffDashboard = () => {
     { id: 'video-interviews', label: 'Video Interviews', icon: Video },
     { id: 'interview-ops', label: 'Interview Ops Board', icon: Calendar },
     { id: 'drive-ops', label: 'Drive Operations', icon: Building2 },
+    { id: 'applications', label: 'Applications', icon: Briefcase },
     { id: 'verification', label: 'KYC Verification', icon: UserCheck },
     { id: 'exam-desk', label: 'Exam Desk', icon: BookOpen }, // Exam Desk for HR/Staff
-    { id: 'comms-hub', label: 'Communication Hub', icon: MessageSquare },
     { id: 'resume-desk', label: 'Resume Review Desk', icon: FileText },
     { id: 'task-manager', label: 'Task Manager', icon: ClipboardList },
-    { id: 'sla-dashboard', label: 'SLA Dashboard', icon: Clock },
     { id: 'ticketing', label: 'Student Ticketing', icon: Inbox },
     { id: 'staff-audit', label: 'Staff Audit Trail', icon: Shield },
     { id: 'staff-performance', label: 'Staff Performance', icon: TrendingUp },
@@ -701,7 +706,10 @@ const StaffDashboard = () => {
 
   const runQuickAction = (actionName) => {
     const timestamp = new Date().toLocaleString();
-    setQuickActionResult(`${actionName} executed at ${timestamp}`);
+    const msg = `${actionName} executed at ${timestamp}`;
+    setQuickActionResult(msg);
+    setActionToast(msg);
+    setTimeout(() => setActionToast(''), 3000);
   };
 
   // ========== DATA FETCHING FROM BACKEND ==========
@@ -711,6 +719,22 @@ const StaffDashboard = () => {
       return;
     }
     fetchAllData();
+  }, [user, navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const handleRefresh = () => {
+      fetchAllData();
+    };
+
+    const intervalId = setInterval(handleRefresh, 30000);
+    window.addEventListener('focus', handleRefresh);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleRefresh);
+    };
   }, [user, navigate]);
 
   const fetchAllData = async () => {
@@ -2583,7 +2607,55 @@ const StaffDashboard = () => {
             <p style={{ color: currentColors.textSecondary }} className="text-sm">Checklist-driven execution for each placement drive.</p>
           </div>
           <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-6 rounded-2xl border">
-            <p style={{ color: currentColors.text }} className="font-bold mb-4">Drive: {driveOps.selectedDrive}</p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p style={{ color: currentColors.text }} className="font-bold">Placement Drive Operations</p>
+                <p style={{ color: currentColors.textSecondary }} className="text-xs">Drive: {driveOps.selectedDrive}</p>
+              </div>
+              <div>
+                <select value={driveOps.selectedDrive} onChange={(e) => setDriveOps((prev) => ({ ...prev, selectedDrive: e.target.value }))} style={{ backgroundColor: currentColors.input, color: currentColors.text, borderColor: currentColors.border }} className="rounded-lg border px-3 py-2 text-sm">
+                  {driveList.map((d) => (
+                    <option key={d.id} value={d.id}>{d.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              {(() => {
+                const sel = driveList.find((d) => d.id === driveOps.selectedDrive) || driveList[0];
+                return [
+                  { title: 'Registered Students', value: sel.registered, tone: 'text-violet-500' },
+                  { title: 'Interviews Scheduled', value: sel.interviewsScheduled, tone: 'text-amber-500' },
+                  { title: 'Openings', value: sel.openings, tone: 'text-cyan-500' }
+                ].map((m) => (
+                  <div key={m.title} style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-3 rounded-xl border">
+                    <p className="text-xs text-slate-400">{m.title}</p>
+                    <p className={`text-2xl font-black ${m.tone}`}>{m.value}</p>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            {/* Quick actions */}
+            <div className="flex flex-wrap gap-3 mb-4">
+              <button onClick={() => runQuickAction('Publish Shortlist')} className="px-4 py-2 bg-indigo-600 rounded-xl text-white text-sm font-bold">Publish Shortlist</button>
+              <button onClick={() => runQuickAction('Send Student Communication')} className="px-4 py-2 bg-cyan-600 rounded-xl text-white text-sm font-bold">Send Communication</button>
+              <button onClick={() => runQuickAction('Export Attendance CSV')} className="px-4 py-2 bg-emerald-600 rounded-xl text-white text-sm font-bold">Export Attendance</button>
+              <button onClick={() => runQuickAction('Assign Interview Panel')} className="px-4 py-2 bg-purple-600 rounded-xl text-white text-sm font-bold">Assign Panel</button>
+              <label className="px-4 py-2 bg-white/5 rounded-xl text-sm font-bold cursor-pointer flex items-center gap-2">
+                Upload Panel Availability
+                <input type="file" onChange={(e) => runQuickAction('Upload Panel Availability')} className="hidden" />
+              </label>
+            </div>
+
+            {actionToast && (
+              <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm font-semibold">
+                {actionToast}
+              </div>
+            )}
+
             <div className="space-y-3">
               {driveOps.checklist.map((item) => (
                 <label key={item.id} style={{ backgroundColor: currentColors.hover, borderColor: currentColors.border }} className="flex items-center justify-between p-3 rounded-xl border cursor-pointer">
@@ -2891,31 +2963,6 @@ const StaffDashboard = () => {
           </div>
         </div>
       );
-      case 'comms-hub': return (
-        <div className="animate-in fade-in duration-500 space-y-6">
-          <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-8 rounded-[2.5rem] border">
-            <h2 style={{ color: currentColors.text }} className="text-3xl font-bold mb-2">Bulk Communication Hub</h2>
-            <p style={{ color: currentColors.textSecondary }} className="text-sm">Segment students and send templated communication.</p>
-          </div>
-          <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-6 rounded-2xl border">
-            <div className="grid md:grid-cols-3 gap-3 mb-3">
-              <select value={commsTemplate} onChange={(e) => setCommsTemplate(e.target.value)} style={{ backgroundColor: currentColors.input, color: currentColors.text, borderColor: currentColors.border }} className="rounded-lg border px-3 py-2 text-sm">
-                <option value="deadline-reminder">Deadline Reminder</option>
-                <option value="interview-alert">Interview Alert</option>
-                <option value="drive-announcement">Drive Announcement</option>
-              </select>
-              <select style={{ backgroundColor: currentColors.input, color: currentColors.text, borderColor: currentColors.border }} className="rounded-lg border px-3 py-2 text-sm">
-                <option>All Branches</option>
-                <option>CSE</option>
-                <option>IT</option>
-                <option>ECE</option>
-              </select>
-              <button onClick={() => setShowNotificationModal(true)} className="px-4 py-2 bg-indigo-600 rounded-lg text-white text-sm font-bold">Open Sender</button>
-            </div>
-            <p style={{ color: currentColors.textSecondary }} className="text-xs">Currently selected students: {selectedStudents.length}</p>
-          </div>
-        </div>
-      );
       case 'resume-desk': return (
         <div className="animate-in fade-in duration-500 space-y-6">
           <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-8 rounded-[2.5rem] border">
@@ -2931,7 +2978,34 @@ const StaffDashboard = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-indigo-400">Score {item.score}</span>
-                  <button onClick={() => setResumeReviewQueue((prev) => prev.map((row) => row.id === item.id ? { ...row, status: 'reviewed' } : row))} className="px-3 py-2 bg-emerald-600 rounded-lg text-xs font-bold text-white">Mark Reviewed</button>
+                  <button
+                    onClick={async () => {
+                      // Optimistic UI update
+                      setResumeReviewQueue((prev) => prev.map((row) => row.id === item.id ? { ...row, status: 'reviewed' } : row));
+
+                      // Only call backend for likely real DB object IDs
+                      const looksLikeObjectId = /^[0-9a-fA-F]{24}$/.test(item.id);
+                      if (!looksLikeObjectId) return;
+
+                      try {
+                        const res = await fetch(`/api/students/${item.id}/mark-reviewed`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                        });
+                        if (!res.ok) {
+                          // Revert optimistic update on failure
+                          setResumeReviewQueue((prev) => prev.map((row) => row.id === item.id ? { ...row, status: 'pending' } : row));
+                          const text = await res.text().catch(() => res.statusText || '');
+                          alert('Failed to mark as reviewed: ' + (res.statusText || text));
+                        }
+                      } catch (err) {
+                        setResumeReviewQueue((prev) => prev.map((row) => row.id === item.id ? { ...row, status: 'pending' } : row));
+                        alert('Failed to mark as reviewed.');
+                      }
+                    }}
+                    className="px-3 py-2 bg-emerald-600 rounded-lg text-xs font-bold text-white"
+                  >Mark Reviewed</button>
                 </div>
               </div>
             ))}
@@ -2961,20 +3035,7 @@ const StaffDashboard = () => {
           </div>
         </div>
       );
-      case 'sla-dashboard': return (
-        <div className="animate-in fade-in duration-500 space-y-6">
-          <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-8 rounded-[2.5rem] border">
-            <h2 style={{ color: currentColors.text }} className="text-3xl font-bold mb-2">SLA Dashboard</h2>
-            <p style={{ color: currentColors.textSecondary }} className="text-sm">Aging and breach tracking for operations workflows.</p>
-          </div>
-          <div className="grid md:grid-cols-4 gap-4">
-            <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-4 rounded-xl border"><p className="text-xs text-slate-400">Pending KYC</p><p className="text-2xl font-black text-amber-400">{slaSummary.pendingKyc}</p></div>
-            <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-4 rounded-xl border"><p className="text-xs text-slate-400">Feedback Pending</p><p className="text-2xl font-black text-orange-400">{slaSummary.feedbackPending}</p></div>
-            <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-4 rounded-xl border"><p className="text-xs text-slate-400">Open Tickets</p><p className="text-2xl font-black text-blue-400">{slaSummary.openTickets}</p></div>
-            <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-4 rounded-xl border"><p className="text-xs text-slate-400">Breach Count</p><p className="text-2xl font-black text-red-400">{slaSummary.totalBreaches}</p></div>
-          </div>
-        </div>
-      );
+      
       case 'ticketing': return (
         <div className="animate-in fade-in duration-500 space-y-6">
           <div style={{ backgroundColor: currentColors.card, borderColor: currentColors.border }} className="p-8 rounded-[2.5rem] border">
@@ -3947,6 +4008,7 @@ const StaffDashboard = () => {
             {isSidebarOpen && <span className="text-xs font-bold uppercase tracking-widest">Edit Profile</span>}
           </button>
           <button 
+            onClick={() => setCurrentView('theme')}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all ${isDark ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'}`}
           >
             <SettingsIcon className="w-4 h-4 flex-shrink-0" />

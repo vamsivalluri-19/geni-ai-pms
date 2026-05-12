@@ -21,6 +21,11 @@ const placementResultSchema = new mongoose.Schema({
     trim: true
   },
   location: String,
+  placementType: {
+    type: String,
+    enum: ['on-campus', 'off-campus'],
+    default: 'on-campus'
+  },
   ctc: String,
   bond: String,
   offerType: {

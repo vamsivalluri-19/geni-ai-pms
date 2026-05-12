@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import ImageCropUpload from './ImageCropUpload';
 import { X, Mail, Phone, Badge, Calendar, Briefcase } from 'lucide-react';
 
-const ProfileModal = ({ user, isOpen, onClose, isDark = false, colors = null }) => {
+const ProfileModal = ({ user, isOpen, onClose, onSave, isDark = false, colors = null }) => {
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
     role: user?.role || '',
     designation: user?.designation || '',
+    studentId: user?.studentId || user?.id || '',
   });
 
   const defaultColors = {
@@ -83,6 +84,27 @@ const ProfileModal = ({ user, isOpen, onClose, isDark = false, colors = null }) 
                   type="text"
                   value={profileData.name}
                   onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                  style={{
+                    backgroundColor: currentColors.bgSecondary,
+                    borderColor: currentColors.border,
+                    color: currentColors.text,
+                  }}
+                  className="w-full border rounded-xl px-4 py-3 focus:ring-2 ring-indigo-500 outline-none"
+                />
+              </div>
+
+              {/* Student ID */}
+              <div>
+                <label
+                  style={{ color: currentColors.textSecondary }}
+                  className="block text-sm font-bold uppercase tracking-widest mb-2"
+                >
+                  Student ID
+                </label>
+                <input
+                  type="text"
+                  value={profileData.studentId}
+                  onChange={(e) => setProfileData({ ...profileData, studentId: e.target.value })}
                   style={{
                     backgroundColor: currentColors.bgSecondary,
                     borderColor: currentColors.border,
@@ -210,7 +232,7 @@ const ProfileModal = ({ user, isOpen, onClose, isDark = false, colors = null }) 
               Cancel
             </button>
             <button
-              onClick={onClose}
+              onClick={() => { if (onSave) onSave(profileData); onClose(); }}
               className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:shadow-lg transition-all"
             >
               ✓ Save Changes

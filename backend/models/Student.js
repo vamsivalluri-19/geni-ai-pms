@@ -31,11 +31,40 @@ const studentSchema = new mongoose.Schema({
   },
   phoneNumber: String,
   avatar: String,
-  assignedExams: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'InterviewExam'
-  }],
+    assignedExams: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'InterviewExam'
+    }],
+    certifications: [{
+      name: String,
+      issuer: String,
+      date: Date,
+      credentialId: String,
+      url: String,
+      source: {
+        type: String,
+        enum: ['student', 'staff'],
+        default: 'student'
+      },
+      certificateFile: String,
+      status: String
+    }],
+    achievements: [{
+      title: String,
+      description: String,
+      date: Date
+    }],
+    socialLinks: {
+      linkedIn: String,
+      github: String,
+      website: String
+    },
+    portfolioFiles: [String],
   resumeDraft: {
+      resumeReviewed: {
+        type: Boolean,
+        default: false
+      },
     type: mongoose.Schema.Types.Mixed,
     default: null
   },
@@ -58,6 +87,12 @@ const studentSchema = new mongoose.Schema({
     ref: 'Job'
   },
   // CSV Data Fields
+  atsScore: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: null
+  },
   age: Number,
   gender: {
     type: String,
@@ -72,7 +107,7 @@ const studentSchema = new mongoose.Schema({
   communicationSkills: Number,
   aptitudeTestScore: Number,
   softSkillsRating: Number,
-  certifications: Number,
+  certificationCount: Number,
   backlogs: {
     type: Number,
     default: 0

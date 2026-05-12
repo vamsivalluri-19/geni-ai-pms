@@ -1,3 +1,51 @@
+// Clone job
+export const cloneJob = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    // Only admin, hr, recruiter, or original poster can clone
+    if (
+      job.postedBy.toString() !== req.user.id &&
+      req.user.role !== 'admin' &&
+      req.user.role !== 'hr' &&
+      req.user.role !== 'recruiter'
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to clone this job'
+      });
+    }
+
+    // Prepare new job data (copy all fields except _id, createdAt, status)
+    const newJobData = job.toObject();
+    delete newJobData._id;
+    delete newJobData.createdAt;
+    newJobData.status = 'draft';
+    newJobData.postedBy = req.user.id;
+    newJobData.postedByRole = req.user.role;
+    newJobData.applicationDeadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const clonedJob = await Job.create(newJobData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Job cloned successfully',
+      job: clonedJob
+    });
+  } catch (error) {
+    console.error('Clone job error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error cloning job'
+    });
+  }
+};
 import Job from '../models/Job.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';

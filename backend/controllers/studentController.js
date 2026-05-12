@@ -7,8 +7,24 @@ import { parse } from 'csv-parse/sync';
 // Create student profile
 export const createStudentProfile = async (req, res) => {
   try {
-    const { rollNumber, branch, cgpa, semester, section, phoneNumber, skills } = req.body;
+    const { rollNumber, branch, cgpa, semester, section, phoneNumber, skills, certifications, achievements, socialLinks, portfolioFiles } = req.body;
     const userId = req.user.id;
+
+    // Validate required fields
+    if (!rollNumber || !branch) {
+      return res.status(400).json({
+        success: false,
+        message: 'rollNumber and branch are required.'
+      });
+    }
+    // Validate branch value
+    const allowedBranches = ['CSE', 'ECE', 'ME', 'CE', 'EE', 'Civil', 'IT'];
+    if (!allowedBranches.includes(branch)) {
+      return res.status(400).json({
+        success: false,
+        message: `branch must be one of: ${allowedBranches.join(', ')}`
+      });
+    }
 
     // Check if student already exists
     let student = await Student.findOne({ user: userId });
@@ -19,6 +35,14 @@ export const createStudentProfile = async (req, res) => {
       });
     }
 
+    // Ensure skills is an array
+    let skillsArray = [];
+    if (Array.isArray(skills)) {
+      skillsArray = skills;
+    } else if (typeof skills === 'string') {
+      skillsArray = skills.split(',').map(s => s.trim());
+    }
+
     student = await Student.create({
       user: userId,
       rollNumber,
@@ -27,7 +51,11 @@ export const createStudentProfile = async (req, res) => {
       semester,
       section,
       phoneNumber,
-      skills: skills ? skills.split(',').map(s => s.trim()) : []
+      skills: skillsArray,
+      certifications: certifications || [],
+      achievements: achievements || [],
+      socialLinks: socialLinks || {},
+      portfolioFiles: portfolioFiles || []
     });
 
     await student.populate('user', 'name email');
@@ -38,9 +66,11 @@ export const createStudentProfile = async (req, res) => {
       student
     });
   } catch (error) {
+    console.error('Create Student Profile Error:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
+      error: error.stack
     });
   }
 };
@@ -101,15 +131,30 @@ export const getStudentProfile = async (req, res) => {
 // Update student profile
 export const updateStudentProfile = async (req, res) => {
   try {
-    const { name, email, phone, branch, cgpa, semester, section, phoneNumber, skills, projects, resumeDraft, resumeTemplateId, avatar } = req.body;
+    const { name, email, phone, branch, cgpa, semester, section, phoneNumber, rollNumber, studentId, id, skills, projects, resumeDraft, resumeTemplateId, avatar, certifications, achievements, socialLinks, portfolioFiles } = req.body;
     const targetUserId = req.params.id || req.user.id;
     const hasField = (field) => Object.prototype.hasOwnProperty.call(req.body, field);
     const resolvedPhone = hasField('phoneNumber') ? phoneNumber : (hasField('phone') ? phone : undefined);
+    const resolvedRollNumber = hasField('rollNumber')
+      ? rollNumber
+      : (hasField('studentId') ? studentId : (hasField('id') ? id : undefined));
+    const normalizedRollNumber = resolvedRollNumber !== undefined
+      ? String(resolvedRollNumber || '').trim()
+      : undefined;
 
     if (req.user.role === 'student' && targetUserId !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
+      });
+    }
+
+    // Validate branch if present
+    const allowedBranches = ['CSE', 'ECE', 'ME', 'CE', 'EE', 'Civil', 'IT'];
+    if (hasField('branch') && branch && !allowedBranches.includes(branch)) {
+      return res.status(400).json({
+        success: false,
+        message: `branch must be one of: ${allowedBranches.join(', ')}`
       });
     }
 
@@ -119,7 +164,6 @@ export const updateStudentProfile = async (req, res) => {
       if (hasField('name')) userUpdates.name = name;
       if (hasField('email')) userUpdates.email = email;
       if (resolvedPhone !== undefined) userUpdates.phone = resolvedPhone || '';
-      
       await User.findByIdAndUpdate(targetUserId, userUpdates);
     }
 
@@ -128,26 +172,33 @@ export const updateStudentProfile = async (req, res) => {
     if (!student) {
       student = await Student.create({
         user: targetUserId,
-        rollNumber: `AUTO-${targetUserId.slice(-6)}`,
+        rollNumber: normalizedRollNumber || `AUTO-${targetUserId.slice(-6)}`,
         branch: branch || 'CSE',
         cgpa: cgpa || 0,
         semester: semester || '',
         section: section || '',
         phoneNumber: resolvedPhone || '',
         avatar: avatar || '',
-        skills: skills || []
+        skills: Array.isArray(skills) ? skills : (typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : []),
       });
     } else {
+      if (normalizedRollNumber !== undefined) {
+        student.rollNumber = normalizedRollNumber || student.rollNumber;
+      }
       if (hasField('branch')) student.branch = branch;
       if (hasField('cgpa')) student.cgpa = cgpa;
       if (hasField('semester')) student.semester = semester;
       if (hasField('section')) student.section = section;
       if (resolvedPhone !== undefined) student.phoneNumber = resolvedPhone || '';
       if (hasField('avatar')) student.avatar = avatar;
-      if (hasField('skills')) student.skills = skills;
+      if (hasField('skills')) student.skills = Array.isArray(skills) ? skills : (typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : []);
       if (hasField('projects')) student.projects = projects;
       if (hasField('resumeDraft')) student.resumeDraft = resumeDraft;
       if (resumeTemplateId !== undefined) student.resumeTemplateId = resumeTemplateId;
+      if (hasField('certifications')) student.certifications = certifications;
+      if (hasField('achievements')) student.achievements = achievements;
+      if (hasField('socialLinks')) student.socialLinks = socialLinks;
+      if (hasField('portfolioFiles')) student.portfolioFiles = portfolioFiles;
 
       // Handle resume upload
       if (req.file) {
@@ -173,9 +224,11 @@ export const updateStudentProfile = async (req, res) => {
       student: updatedStudent
     });
   } catch (error) {
+    console.error('Update Student Profile Error:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
+      error: error.stack
     });
   }
 };
@@ -290,6 +343,10 @@ const mapCsvStudentRecord = (record) => {
 };
 
 // Get students from bundled CSV dataset
+// In-memory cache for parsed students.csv
+let cachedCsvStudents = null;
+let cachedCsvMtime = null;
+
 export const getStudentsFromCSV = async (req, res) => {
   try {
     const csvPath = path.join(process.cwd(), 'data', 'students.csv');
@@ -300,13 +357,29 @@ export const getStudentsFromCSV = async (req, res) => {
       });
     }
 
+    // Check if cache is valid (file not changed)
+    const stats = fs.statSync(csvPath);
+    if (
+      cachedCsvStudents &&
+      cachedCsvMtime &&
+      cachedCsvMtime.getTime() === stats.mtime.getTime()
+    ) {
+      return res.status(200).json({
+        success: true,
+        count: cachedCsvStudents.length,
+        students: cachedCsvStudents
+      });
+    }
+
+    // Read and parse CSV, then cache
     const fileContent = fs.readFileSync(csvPath, 'utf-8');
     const records = parse(fileContent, {
       columns: true,
       skip_empty_lines: true
     });
-
     const students = records.map(mapCsvStudentRecord);
+    cachedCsvStudents = students;
+    cachedCsvMtime = stats.mtime;
 
     res.status(200).json({
       success: true,

@@ -23,6 +23,8 @@ function getAvatarUrl(avatar) {
 
 export default function Register() {
   const backendBaseUrl = BACKEND_BASE_URL;
+  // Add OTP display state at the top to avoid ReferenceError
+  const [otpDisplay, setOtpDisplay] = useState("");
   const [role, setRole] = useState("student");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -36,7 +38,9 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [section, setSection] = useState(null);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(
+    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -79,11 +83,17 @@ export default function Register() {
   const passwordStrengthColor =
     passwordScore <= 2 ? "bg-red-500" : passwordScore === 3 ? "bg-amber-500" : passwordScore === 4 ? "bg-blue-500" : "bg-emerald-500";
 
-  const highContrastInputStyle = {
-    WebkitTextFillColor: "#ffffff",
-    WebkitBoxShadow: "0 0 0 1000px rgba(15, 23, 42, 0.92) inset",
-    caretColor: "#ffffff",
-  };
+  const highContrastInputStyle = darkMode
+    ? {
+        WebkitTextFillColor: "#ffffff",
+        WebkitBoxShadow: "0 0 0 1000px rgba(15, 23, 42, 0.92) inset",
+        caretColor: "#ffffff",
+      }
+    : {
+        WebkitTextFillColor: "#1e293b",
+        WebkitBoxShadow: "0 0 0 1000px #fff inset",
+        caretColor: "#1e293b",
+      };
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -213,12 +223,15 @@ export default function Register() {
         employeeId,
         agreeTerms,
       });
+      // Debug: log the full backend response to check for OTP
+      console.log('Registration API response:', response.data);
       if (response.data.success && response.data.otpRequired) {
         setRegisterOtpModal(true);
         setRegisterOtp("");
-        const otpInfo = response.data.devOtp ? ` OTP: ${response.data.devOtp}` : "";
-        setRegisterOtpMessage(`${response.data.message || "OTP sent to your email."}${otpInfo}`);
+        setRegisterOtpMessage(response.data.message || "OTP sent to your email.");
         setErrorMsg("");
+        // Store OTP in a separate state for display
+        setOtpDisplay(response.data.otp || "");
       } else {
         setErrorMsg(response.data.message || "Registration failed. Please try again.");
       }
@@ -318,7 +331,7 @@ export default function Register() {
   return (
     <div
       className={`min-h-screen relative overflow-hidden transition-colors duration-500 ${
-        darkMode ? "bg-slate-900 text-white" : "bg-slate-950 text-white"
+        darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-800"
       }`}
     >
       {/* ================= FULL 3D ANIMATED BACKGROUND ================= */}
@@ -328,7 +341,7 @@ export default function Register() {
           className={`absolute inset-0 ${
             darkMode
               ? "bg-gradient-to-b from-[#07111f] via-[#0d1b2a] to-[#02060d]"
-              : "bg-gradient-to-b from-[#07111f] via-[#0d1b2a] to-[#02060d]"
+              : "bg-gradient-to-b from-white via-gray-100 to-gray-200"
           }`}
         />
 
@@ -480,7 +493,7 @@ export default function Register() {
         className={`fixed top-0 w-full z-50 backdrop-blur-md border-b ${
           darkMode
             ? "bg-slate-900/80 border-slate-700"
-            : "bg-slate-900/85 border-slate-700"
+            : "bg-white/80 border-gray-200"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -537,7 +550,7 @@ export default function Register() {
           className={`flex flex-col md:flex-row w-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl transition-all duration-500 ${
             darkMode
               ? "bg-slate-900/80 backdrop-blur-xl border border-white/10"
-              : "bg-slate-900/85 backdrop-blur-xl border border-slate-700"
+              : "bg-white backdrop-blur-xl border border-gray-200"
           }`}
         >
           {/* LEFT SIDE - ROLE IMAGE */}
@@ -585,9 +598,9 @@ export default function Register() {
               </div>
             </div>
             <div className="mb-8">
-              <h1 className="text-3xl font-bold tracking-tight text-white">Create Account</h1>
-              <div className="h-1 w-16 bg-blue-600 rounded-full mt-2" />
-              <p className="mt-3 text-sm text-white dark:text-blue-200 font-bold">
+              <h1 className={`text-3xl font-bold tracking-tight ${darkMode ? "text-white" : "text-gray-900"}`}>Create Account</h1>
+              <div className={`h-1 w-16 rounded-full mt-2 ${darkMode ? "bg-blue-600" : "bg-blue-400"}`} />
+              <p className={`mt-3 text-sm font-bold ${darkMode ? "text-blue-200" : "text-gray-900"}`}>
                 Enter your details to get started
               </p>
             </div>
@@ -602,14 +615,14 @@ export default function Register() {
               
               {/* ROLE SELECT */}
               <div className="relative">
-                <label className="text-xs font-semibold uppercase mb-2 block text-white">
+                <label className={`text-xs font-semibold uppercase mb-2 block ${darkMode ? 'text-white' : 'text-gray-800'}`}> 
                   Select Role
                 </label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-500 focus:border-blue-500 rounded-xl outline-none transition-all appearance-none bg-slate-800/90 text-white"
+                  className={`w-full pl-10 pr-4 py-3 border-2 focus:border-blue-500 rounded-xl outline-none transition-all appearance-none ${darkMode ? 'bg-slate-800/90 border-slate-500 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                 >
                   <option value="student">Student</option>
                   <option value="staff">Staff</option>
@@ -623,7 +636,7 @@ export default function Register() {
 
               {/* NAME INPUT */}
               <div className="relative">
-                <label className="text-xs font-semibold uppercase mb-2 block text-white dark:text-blue-200">
+                <label className={`text-xs font-semibold uppercase mb-2 block ${darkMode ? 'text-white dark:text-blue-200' : 'text-gray-800'}`}> 
                   Full Name
                 </label>
                 <input
@@ -632,7 +645,7 @@ export default function Register() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-500 focus:border-blue-500 rounded-xl outline-none transition-all bg-slate-800/90 text-white placeholder:text-slate-300"
+                  className={`w-full pl-10 pr-4 py-3 border-2 focus:border-blue-500 rounded-xl outline-none transition-all ${darkMode ? 'bg-slate-800/90 border-slate-500 text-white placeholder:text-slate-300' : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400'}`}
                   required
                 />
                 <div className="absolute left-3 top-9 text-slate-200">
@@ -642,7 +655,7 @@ export default function Register() {
 
               {/* EMAIL INPUT */}
               <div className="relative">
-                <label className="text-xs font-semibold uppercase mb-2 block text-white">
+                <label className={`text-xs font-semibold uppercase mb-2 block ${darkMode ? 'text-white' : 'text-gray-800'}`}> 
                   Email Address
                 </label>
                 <input
@@ -655,7 +668,7 @@ export default function Register() {
                   }}
                   onBlur={() => checkAvailability("email", email)}
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-500 focus:border-blue-500 rounded-xl outline-none transition-all bg-slate-800/90 text-white placeholder:text-slate-300"
+                  className={`w-full pl-10 pr-4 py-3 border-2 focus:border-blue-500 rounded-xl outline-none transition-all ${darkMode ? 'bg-slate-800/90 border-slate-500 text-white placeholder:text-slate-300' : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400'}`}
                   required
                 />
                 <div className="absolute left-3 top-9 text-slate-200">
@@ -670,7 +683,7 @@ export default function Register() {
 
               {/* PHONE INPUT */}
               <div className="relative">
-                <label className="text-xs font-semibold uppercase mb-2 block text-white">
+                <label className={`text-xs font-semibold uppercase mb-2 block ${darkMode ? 'text-white' : 'text-gray-800'}`}> 
                   Phone Number
                 </label>
                 <input
@@ -683,7 +696,7 @@ export default function Register() {
                   }}
                   onBlur={() => checkAvailability("phone", phone)}
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-500 focus:border-blue-500 rounded-xl outline-none transition-all bg-slate-800/90 text-white placeholder:text-slate-300"
+                  className={`w-full pl-10 pr-4 py-3 border-2 focus:border-blue-500 rounded-xl outline-none transition-all ${darkMode ? 'bg-slate-800/90 border-slate-500 text-white placeholder:text-slate-300' : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400'}`}
                   required
                 />
                 <div className="absolute left-3 top-9 text-slate-200">
@@ -756,7 +769,7 @@ export default function Register() {
 
               {/* PASSWORD INPUT */}
               <div className="relative">
-                <label className="text-xs font-semibold uppercase mb-2 block text-white">
+                <label className={`text-xs font-semibold uppercase mb-2 block ${darkMode ? 'text-white' : 'text-gray-800'}`}> 
                   Password
                 </label>
                 <input
@@ -765,7 +778,7 @@ export default function Register() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-12 py-3 border-2 border-slate-500 focus:border-blue-500 rounded-xl outline-none transition-all bg-slate-800/90 text-white placeholder:text-slate-300"
+                  className={`w-full pl-10 pr-12 py-3 border-2 focus:border-blue-500 rounded-xl outline-none transition-all ${darkMode ? 'bg-slate-800/90 border-slate-500 text-white placeholder:text-slate-300' : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400'}`}
                   required
                 />
                 <div className="absolute left-3 top-9 text-slate-200">
@@ -842,7 +855,7 @@ export default function Register() {
                   onChange={(e) => setAgreeTerms(e.target.checked)}
                   className="w-4 h-4 rounded border-2 border-blue-500 accent-blue-600"
                 />
-                <label htmlFor="terms" className="text-xs text-slate-100">
+                <label htmlFor="terms" className={`text-xs ${darkMode ? 'text-slate-100' : 'text-gray-700'}`}> 
                   I agree to{" "}
                   <button
                     type="button"
@@ -868,10 +881,10 @@ export default function Register() {
               {/* OAuth Divider */}
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full h-px bg-slate-700"></div>
+                  <div className={`w-full h-px ${darkMode ? 'bg-slate-700' : 'bg-gray-300'}`}></div>
                 </div>
-                <div className="relative flex justify-center text-sm bg-slate-900">
-                  <span className="px-2 text-slate-200">Or sign up with</span>
+                <div className={`relative flex justify-center text-sm ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
+                  <span className={`px-2 font-semibold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Or sign up with</span>
                 </div>
               </div>
 
@@ -895,9 +908,12 @@ export default function Register() {
             </form>
 
             {/* LOGIN LINK */}
-            <p className={`mt-4 text-sm text-center ${darkMode ? 'text-slate-200' : 'text-gray-900'}`}>
-              <span style={{color:'white', fontWeight:'bold', textShadow:'0 1px 4px #000'}}>Already have an account?</span>
-              <Link to="/" className="text-blue-400 font-bold ml-1 hover:underline" style={{textShadow:'0 1px 4px #000'}}>
+            <p className={`mt-4 text-sm text-center font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>
+              <span className={darkMode ? '' : 'text-gray-800'} style={darkMode ? {color:'white', textShadow:'0 1px 4px #000'} : {color:'#222'}}>
+                Already have an account?
+              </span>
+              <Link to="/" className={`ml-1 font-bold hover:underline ${darkMode ? 'text-blue-300' : 'text-blue-600'}`}
+                style={darkMode ? {textShadow:'0 1px 4px #000'} : {}}>
                 Login here
               </Link>
             </p>
@@ -1080,6 +1096,12 @@ export default function Register() {
             <div className={`p-8 flex flex-col gap-5 border-b ${darkMode ? "border-slate-700 bg-slate-800" : "border-gray-100 bg-white"}`}>
               <h3 className="text-lg font-bold">Verify Registration OTP</h3>
               <p className="text-sm">We sent a 6-digit OTP to <span className="font-semibold">{email}</span>.</p>
+              {otpDisplay && (
+                <div className="my-2 p-3 rounded-xl bg-blue-50 dark:bg-slate-700 border border-blue-200 dark:border-blue-700 flex flex-col items-center">
+                  <span className="text-xs text-blue-700 dark:text-blue-200 font-semibold mb-1">Your OTP</span>
+                  <span className="text-2xl font-bold text-blue-700 dark:text-blue-200 tracking-widest">{otpDisplay}</span>
+                </div>
+              )}
               <form onSubmit={handleVerifyRegisterOtp} className="space-y-4">
                 <input
                   type="text"
@@ -1091,11 +1113,13 @@ export default function Register() {
                   className={`w-full px-4 py-3 border-2 rounded-xl outline-none text-center text-lg tracking-widest font-mono ${darkMode ? 'bg-slate-700 text-white border-slate-600 focus:border-blue-500' : 'bg-white text-gray-700 border-gray-300 focus:border-blue-500'}`}
                   required
                 />
-                {registerOtpMessage && <p className="text-sm text-amber-500">{registerOtpMessage}</p>}
+                {registerOtpMessage && (
+                  <p className="text-sm text-amber-500">{registerOtpMessage}</p>
+                )}
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setRegisterOtpModal(false)}
+                    onClick={() => { setRegisterOtpModal(false); setOtpDisplay(""); }}
                     disabled={registerOtpLoading}
                     className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-white disabled:opacity-50' : 'bg-gray-200 hover:bg-gray-300 text-gray-800 disabled:opacity-50'}`}
                   >

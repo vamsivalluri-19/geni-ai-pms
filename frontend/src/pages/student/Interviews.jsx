@@ -83,6 +83,19 @@ const StudentInterviews = () => {
     });
   };
 
+  // Calendar grid for interview days
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  // Get interview days as numbers for this month
+  const interviewDays = interviews
+    .map(i => {
+      const d = new Date(i.scheduledDate || i.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear ? d.getDate() : null;
+    })
+    .filter(Boolean);
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -94,6 +107,30 @@ const StudentInterviews = () => {
         </div>
         <div className="text-3xl font-bold text-gray-900">
           {interviews.filter(i => i.status === 'upcoming').length} Upcoming
+        </div>
+      </div>
+
+      {/* Interview Calendar Grid */}
+      <div className="bg-white/40 rounded-2xl p-6 mb-8">
+        <h2 className="text-2xl font-bold mb-4 text-red-600">Interview Calendar</h2>
+        <div className="grid grid-cols-7 gap-2">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+            <div key={i} className="text-center text-xs font-bold text-gray-500 py-2">{day}</div>
+          ))}
+          {[...Array(daysInMonth)].map((_, i) => {
+            const day = i + 1;
+            const isInterviewDay = interviewDays.includes(day);
+            return (
+              <div
+                key={day}
+                className={`text-center py-2 rounded-lg text-sm font-bold cursor-pointer transition-all
+                  ${isInterviewDay ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-900'}
+                `}
+              >
+                {day < 10 ? `0${day}` : day}
+              </div>
+            );
+          })}
         </div>
       </div>
 

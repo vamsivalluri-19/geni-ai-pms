@@ -1,5 +1,6 @@
 import DetailedApplicationForm from '../models/DetailedApplicationForm.js';
 import Student from '../models/Student.js';
+import User from '../models/User.js';
 
 // Create or update detailed application form
 export const saveDetailedApplicationForm = async (req, res) => {
@@ -130,6 +131,35 @@ export const getDetailedApplicationFormByStudent = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+// Get detailed application form by student email (for staff/HR)
+export const getDetailedApplicationFormByEmail = async (req, res) => {
+  try {
+    const email = req.params.email;
+    // Find student by email (email may be on Student.email or on the referenced User)
+    let student = await Student.findOne({ email });
+    if (!student) {
+      const user = await User.findOne({ email });
+      if (user) {
+        student = await Student.findOne({ user: user._id });
+      }
+    }
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found with given email' });
+    }
+
+    const form = await DetailedApplicationForm.findOne({ student: student._id }).populate('student');
+
+    if (!form) {
+      return res.status(404).json({ success: false, message: 'Application form not found for this student' });
+    }
+
+    res.status(200).json({ success: true, form });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

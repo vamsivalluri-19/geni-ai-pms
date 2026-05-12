@@ -59,7 +59,9 @@ export const register = async (req, res) => {
 // Login
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    // Normalize email
+    email = (email || '').toLowerCase().trim();
 
     // Validate input
     if (!email || !password) {

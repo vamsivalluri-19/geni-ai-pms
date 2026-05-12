@@ -197,7 +197,8 @@ const ImageCropUpload = ({ currentImage, onImageUpdate, userName = 'User' }) => 
 
             {/* Image Preview */}
             <div className="p-8 space-y-6">
-              <div className="border-4 border-indigo-300 rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center h-96">
+              <div className="border-4 border-indigo-300 rounded-2xl overflow-hidden flex items-center justify-center h-96" style={{ background: '#fff', position: 'relative', boxShadow: '0 0 0 8px #fff' }}>
+                <div style={{ background: '#fff', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}></div>
                 <img
                   src={tempImage}
                   alt="Crop preview"
@@ -205,7 +206,11 @@ const ImageCropUpload = ({ currentImage, onImageUpdate, userName = 'User' }) => 
                     transform: cropMode === 'zoom' ? `scale(${zoom})` : `scale(${zoom})`,
                     transformOrigin: 'center',
                     maxWidth: '100%',
-                    maxHeight: '100%'
+                    maxHeight: '100%',
+                    background: '#fff',
+                    display: 'block',
+                    position: 'relative',
+                    zIndex: 2
                   }}
                   className="object-contain"
                 />

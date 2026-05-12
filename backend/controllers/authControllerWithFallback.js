@@ -227,14 +227,10 @@ export const initiateRegister = async (req, res) => {
       success: true,
       message: emailResult?.success
         ? 'Registration OTP sent to your email.'
-        : 'Email service is not configured. Use the OTP shown below (development mode).',
-      otpRequired: true
+        : 'Email service is not configured. OTP is shown below.',
+      otpRequired: true,
+      otp: otp // Always include OTP for UI display
     };
-
-    if (!emailResult?.success && DEV_OTP_FALLBACK) {
-      responsePayload.devOtp = otp;
-    }
-
     return res.status(200).json(responsePayload);
   } catch (error) {
     console.error('initiateRegister error:', error);

@@ -14,7 +14,9 @@ const examSubmissionSchema = new mongoose.Schema({
   answers: [
     {
       questionIndex: Number,
-      answer: String
+      answer: String,
+      selectedOption: Number,
+      language: String
     }
   ],
   status: {

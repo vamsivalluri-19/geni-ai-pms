@@ -1,12 +1,14 @@
 import Interview from '../models/Interview.js';
 import Application from '../models/Application.js';
 import Student from '../models/Student.js';
+import { createNotification } from './notificationController.js';
+import User from '../models/User.js';
 
 // Schedule interview
 import { v4 as uuidv4 } from 'uuid';
 export const scheduleInterview = async (req, res) => {
   try {
-    const { applicationId, round, scheduledDate } = req.body;
+    const { applicationId, round, scheduledDate, date, startTime, endTime, location, type, interviewer } = req.body;
 
     const application = await Application.findById(applicationId);
     if (!application) {
@@ -25,10 +27,36 @@ export const scheduleInterview = async (req, res) => {
       job: application.job,
       round,
       scheduledDate,
+        date,
+        startTime,
+        endTime,
+        location,
+        type: type || 'Virtual',
+        interviewer,
       roomId
     });
 
     await interview.populate(['student', 'job', 'application']);
+
+    // Create notification for HR
+    try {
+      const hrStaff = await User.find({ role: { $in: ['hr', 'admin', 'staff'] } }).select('_id');
+      if (hrStaff.length > 0) {
+        const promises = hrStaff.map((user) => 
+          createNotification(
+            user._id,
+            'interview',
+            'Interview Scheduled',
+            `Interview scheduled for round ${round} on ${date} at ${startTime} with ${interviewer || 'TBD'}`,
+            interview._id,
+            'Interview'
+          )
+        );
+        await Promise.all(promises);
+      }
+    } catch (notificationError) {
+      console.error('Error creating interview notification:', notificationError);
+    }
 
     res.status(201).json({
       success: true,
@@ -186,7 +214,13 @@ export const getJobInterviews = async (req, res) => {
 export const getAllInterviews = async (req, res) => {
   try {
     const interviews = await Interview.find()
-      .populate('student')
+      .populate({
+        path: 'student',
+        populate: {
+          path: 'user',
+          select: 'name email'
+        }
+      })
       .populate('job')
       .populate('application')
       .sort({ scheduledDate: -1 });

@@ -195,6 +195,22 @@ const AdminDashboard = () => {
     fetchAllData();
   }, [user, navigate]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const handleRefresh = () => {
+      fetchAllData();
+    };
+
+    const intervalId = setInterval(handleRefresh, 30000);
+    window.addEventListener('focus', handleRefresh);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleRefresh);
+    };
+  }, [user, navigate]);
+
   const fetchAllData = async () => {
     setDataLoading(true);
     try {
@@ -1907,7 +1923,7 @@ const AdminDashboard = () => {
     : "bg-gradient-to-b from-slate-50 to-white border-b border-slate-200";
 
   const modalInputClass = isDarkTheme
-    ? "w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none transition-all"
+    ? "w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/60 disabled:text-white disabled:placeholder-white/60 focus:outline-none transition-all caret-white"
     : "w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-500 focus:outline-none transition-all";
 
   const modalSecondaryButtonClass = isDarkTheme
@@ -2527,6 +2543,7 @@ const AdminDashboard = () => {
                   onChange={(e) => setUserForm({...userForm, name: e.target.value})}
                   placeholder="Full name"
                   className={`${modalInputClass} ${isDarkTheme ? 'focus:border-indigo-500' : 'focus:border-indigo-500'}`}
+                  style={{ color: isDarkTheme ? '#ffffff' : undefined }}
                 />
               </div>
 
@@ -2538,6 +2555,7 @@ const AdminDashboard = () => {
                   onChange={(e) => setUserForm({...userForm, email: e.target.value})}
                   placeholder="email@example.com"
                   className={`${modalInputClass} ${isDarkTheme ? 'focus:border-indigo-500' : 'focus:border-indigo-500'}`}
+                  style={{ color: isDarkTheme ? '#ffffff' : undefined }}
                 />
               </div>
 
@@ -2547,6 +2565,7 @@ const AdminDashboard = () => {
                   value={userForm.role}
                   onChange={(e) => setUserForm({...userForm, role: e.target.value})}
                   className={`${modalInputClass} ${isDarkTheme ? 'focus:border-indigo-500' : 'focus:border-indigo-500'}`}
+                  style={{ color: isDarkTheme ? '#ffffff' : undefined }}
                 >
                   <option value="student">Student</option>
                   <option value="staff">Staff</option>
@@ -2564,6 +2583,7 @@ const AdminDashboard = () => {
                     onChange={(e) => setUserForm({...userForm, password: e.target.value})}
                     placeholder="Enter password"
                     className={`${modalInputClass} ${isDarkTheme ? 'focus:border-indigo-500' : 'focus:border-indigo-500'}`}
+                    style={{ color: isDarkTheme ? '#ffffff' : undefined }}
                   />
                 </div>
               )}

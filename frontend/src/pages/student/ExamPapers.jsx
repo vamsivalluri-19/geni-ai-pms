@@ -4,7 +4,7 @@ import {
   AlertCircle, TrendingUp, Award, Target, Search, 
   BookOpen, Briefcase, Send, X, User, Mail, Link as LinkIcon 
 } from 'lucide-react';
-import { examsAPI } from '../../services/api';
+import { examsAPI, applicationsAPI, studentAPI } from '../../services/api';
 import { jsPDF } from 'jspdf';
 
 const ExamPapers = () => {
@@ -520,9 +520,19 @@ const ExamPapers = () => {
     setIsViewQuestionsOpen(true);
   };
 
-  const handlePostToHR = () => {
-    alert(`Application for ${selectedExam.title} at ${selectedExam.company} has been sent to the HR Department!`);
-    setIsApplyModalOpen(false);
+  const handlePostToHR = async () => {
+    try {
+      await applicationsAPI.create({
+        jobId: selectedExam._id || selectedExam.id,
+        coverLetter: applicationData.coverLetter,
+        notes: `Candidate: ${applicationData.fullName}\nEmail: ${applicationData.email}\nResume: ${applicationData.resumeLink}\nPortfolio: ${applicationData.portfolio}`,
+        status: 'applied'
+      });
+      alert(`Application for ${selectedExam.title} at ${selectedExam.company} has been sent to the HR Department!`);
+      setIsApplyModalOpen(false);
+    } catch (error) {
+      alert('Failed to submit application: ' + (error.response?.data?.message || error.message));
+    }
   };
 
   const downloadApplicationPDF = () => {

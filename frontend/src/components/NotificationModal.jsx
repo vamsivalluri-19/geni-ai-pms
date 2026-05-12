@@ -63,7 +63,30 @@ const NotificationModal = ({ show, onClose, notifications, setNotifications, the
                       {notif.time}
                     </p>
                   </div>
-                  {!notif.read && (
+                  {/* Accept/Reject for interview call notifications */}
+                  {!notif.read && notif.type === 'interview' && notif.metadata?.roomId ? (
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => {
+                          // Accept: navigate to interview room
+                          window.location.href = `/interview-room/${notif.metadata.roomId}`;
+                        }}
+                        className="px-3 py-1 text-xs font-bold rounded-lg bg-green-600 text-white hover:bg-green-500 transition-all mb-1"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => {
+                          setNotifications(notifications.map(n => 
+                            n.id === notif.id ? { ...n, read: true } : n
+                          ));
+                        }}
+                        className="px-3 py-1 text-xs font-bold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-all"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  ) : !notif.read && (
                     <button
                       onClick={() => {
                         setNotifications(notifications.map(n => 

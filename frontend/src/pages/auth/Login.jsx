@@ -25,6 +25,7 @@ const backgrounds = {
   staff: "bg-gradient-to-br from-emerald-700 to-lime-900",
   hr: "bg-gradient-to-br from-rose-700 to-orange-900",
   admin: "bg-gradient-to-br from-amber-700 to-red-900",
+  recruiter: "bg-gradient-to-br from-indigo-700 to-violet-900",
 };
 
 const loginBoxColors = {
@@ -32,13 +33,15 @@ const loginBoxColors = {
   staff: "bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 dark:from-emerald-900/20 dark:via-teal-900/20 dark:to-emerald-800/20",
   hr: "bg-gradient-to-br from-rose-50 via-pink-50 to-rose-100 dark:from-rose-900/20 dark:via-pink-900/20 dark:to-rose-800/20",
   admin: "bg-gradient-to-br from-purple-50 via-violet-50 to-purple-100 dark:from-purple-900/20 dark:via-violet-900/20 dark:to-purple-800/20",
+  recruiter: "bg-gradient-to-br from-indigo-50 via-purple-50 to-indigo-100 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-indigo-800/20",
 };
 
 const roleImages = {
   student: "https://img.freepik.com/premium-photo/graduation-boy-girl-class-room_1036975-32053.jpg",
   staff: "https://img.freepik.com/premium-photo/portrait-professional-workers-office-attire-isolated-white-background-3d-cartoon-animation_36897-54576.jpg?w=1060",
   hr: "https://img.freepik.com/premium-photo/business-presentation-3d-realistic-two-employees-crochets-doll-figure-is-doing-presentation_565941-3754.jpg?w=996",
-  admin: "https://img.freepik.com/premium-psd/businessman-with-documents-pointing-glasses-3d-isolated-transparent-background-png-psd_1130573-121202.jpg"
+  admin: "https://img.freepik.com/premium-psd/businessman-with-documents-pointing-glasses-3d-isolated-transparent-background-png-psd_1130573-121202.jpg",
+  recruiter: "https://img.freepik.com/premium-photo/3d-realistic-rendering-human-resources-management-concept-hr-recruiter-selecting-best-candidates_1020697-12345.jpg"
 };
 
 export default function Login() {
@@ -48,7 +51,9 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(
+    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
   const [activeModal, setActiveModal] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState(false);
@@ -303,7 +308,7 @@ export default function Login() {
   return (
     <div
       className={`min-h-screen relative overflow-hidden transition-colors duration-500 ${
-        darkMode ? "bg-slate-900 text-white" : "bg-slate-950 text-white"
+        darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-800"
       }`}
     >
       {/* 3D ANIMATED BACKGROUND */}
@@ -312,7 +317,7 @@ export default function Login() {
           className={`absolute inset-0 ${
             darkMode
               ? "bg-gradient-to-b from-[#07111f] via-[#0d1b2a] to-[#02060d]"
-              : "bg-gradient-to-b from-[#07111f] via-[#0d1b2a] to-[#02060d]"
+              : "bg-gradient-to-b from-white via-gray-100 to-gray-200"
           }`}
         />
 
@@ -725,7 +730,7 @@ export default function Login() {
         className={`fixed top-0 w-full z-50 backdrop-blur-md border-b ${
           darkMode
             ? "bg-slate-900/80 border-slate-700"
-            : "bg-slate-900/85 border-slate-700"
+            : "bg-white/80 border-gray-200"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -833,14 +838,14 @@ export default function Login() {
           className={`flex flex-col md:flex-row w-full max-w-6xl rounded-3xl overflow-hidden shadow-2xl min-h-[650px] transition-all duration-500 ${
             darkMode
               ? "bg-slate-900/80 backdrop-blur-xl border border-white/10"
-              : "bg-slate-900/85 backdrop-blur-xl border border-slate-700"
+              : "bg-white backdrop-blur-xl border border-gray-200"
           }`}
         >
           <div
             className={`w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center transition-all duration-700 ${
               darkMode
                 ? "bg-slate-900/80"
-                : "bg-slate-900/70"
+                : "bg-white"
             }`}
           >
             <div className="flex justify-center mb-6">
@@ -854,15 +859,16 @@ export default function Login() {
             </div>
 
             <div className="text-center mb-10">
-              <h1 className="text-4xl font-bold tracking-widest text-white">
+              <h1 className={`text-4xl font-bold tracking-widest ${darkMode ? "text-white" : "text-gray-900"}`}>
                 LOGIN
               </h1>
               <p
-                className="mt-3 text-sm uppercase font-semibold text-gray-900 dark:text-blue-200"
+                className={`mt-3 text-sm uppercase font-semibold ${darkMode ? "text-blue-200" : "text-gray-900"}`}
               >
                 {role.charAt(0).toUpperCase() + role.slice(1)} Authentication
               </p>
               <div className="mt-2 h-1 w-16 bg-gradient-to-r from-blue-500 to-emerald-500 mx-auto rounded-full" />
+                          <div className={`mt-2 h-1 w-16 bg-gradient-to-r mx-auto rounded-full ${darkMode ? "from-blue-500 to-emerald-500" : "from-blue-400 to-emerald-400"}`} />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -874,14 +880,14 @@ export default function Login() {
               )}
               
               <div className="relative">
-                <label className="block text-xs font-semibold mb-2 text-white" style={{textShadow:'0 1px 4px #000'}}> 
+                <label className={`block text-xs font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}> 
                   Select Role
                 </label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-4 py-3 border-2 rounded-xl outline-none transition-all appearance-none font-medium bg-slate-800/90 text-white border-slate-500 focus:border-blue-400"
+                  className={`w-full pl-10 pr-4 py-3 border-2 rounded-xl outline-none transition-all appearance-none font-medium ${darkMode ? 'bg-slate-800/90 text-white border-slate-500' : 'bg-white text-gray-900 border-gray-300'}`}
                 >
                   <option value="student">Student</option>
                   <option value="staff">Staff</option>
@@ -894,14 +900,14 @@ export default function Login() {
               </div>
 
               <div className="relative">
-                <label className="block text-xs font-semibold mb-2 text-white" style={{textShadow:'0 1px 4px #000'}}> 
+                <label className={`block text-xs font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}> 
                   Email Address
                 </label>
                 <input
                   type="email"
                   placeholder="your.email@example.com"
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-4 py-3 border-2 rounded-xl outline-none transition-all bg-slate-900/90 text-white placeholder:text-slate-300 border-slate-500 focus:border-blue-400"
+                  className={`w-full pl-10 pr-4 py-3 border-2 rounded-xl outline-none transition-all ${darkMode ? 'bg-slate-900/90 text-white placeholder:text-slate-300 border-slate-500' : 'bg-white text-gray-900 placeholder:text-gray-400 border-gray-300'}`}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -912,14 +918,14 @@ export default function Login() {
               </div>
 
               <div className="relative">
-                <label className="block text-xs font-semibold mb-2 text-white" style={{textShadow:'0 1px 4px #000'}}> 
+                <label className={`block text-xs font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}> 
                   Password
                 </label>
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••••••"
                   style={highContrastInputStyle}
-                  className="w-full pl-10 pr-12 py-3 border-2 rounded-xl outline-none transition-all bg-slate-800/90 text-white placeholder:text-slate-300 border-slate-500 focus:border-blue-400"
+                  className={`w-full pl-10 pr-12 py-3 border-2 rounded-xl outline-none transition-all ${darkMode ? 'bg-slate-800/90 text-white placeholder:text-slate-300 border-slate-500' : 'bg-white text-gray-900 placeholder:text-gray-400 border-gray-300'}`}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -950,7 +956,7 @@ export default function Login() {
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 text-gray-900 dark:text-white">
+                <label className={`flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}> 
                   <input
                     type="checkbox"
                     checked={rememberMe}
@@ -1011,7 +1017,7 @@ export default function Login() {
               </div>
             </form>
 
-            <p className="mt-5 text-sm text-center text-white font-bold" style={{textShadow:'0 1px 4px #000'}}>
+            <p className={`mt-5 text-sm text-center font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}> 
               Don't have an account?
                 <Link
                   to="/register"

@@ -18,7 +18,10 @@ const Sidebar = () => {
               <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mr-2"></span> HR Dashboard
             </Link>
             <Link to="/hr/jobs" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-800 transition">
-              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mr-2"></span> Jobs & Reqs
+              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mr-2"></span> Jobs & Requisitions
+            </Link>
+            <Link to="/hr/applications" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-800 transition">
+              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mr-2"></span> Applications
             </Link>
             <Link to="/hr/exams" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-800 transition">
               <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mr-2"></span> Exams (Connect to Student)

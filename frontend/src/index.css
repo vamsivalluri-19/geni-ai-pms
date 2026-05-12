@@ -51,6 +51,22 @@ html:not(.dark) select {
   color: #0f172a;
 }
 
+/* Ensure modal / glass-card content is readable in light mode */
+html:not(.dark) .glass-card,
+html:not(.dark) .glass-card *,
+html:not(.dark) .hr-dashboard .fixed > div,
+html:not(.dark) .hr-dashboard .fixed > div * {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .glass-card input::placeholder,
+html:not(.dark) .glass-card textarea::placeholder,
+html:not(.dark) .hr-dashboard input::placeholder,
+html:not(.dark) .hr-dashboard textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1;
+}
+
 html:not(.dark) select option {
   color: #0f172a;
   background-color: #ffffff;

@@ -1,263 +1,9 @@
-// Exam Desk view stub
-// Exam Desk view as a component
-function ExamDesk() {
-      // Exam creation form state
-      const [questions, setQuestions] = React.useState([]);
-      const [title, setTitle] = React.useState("");
-      const [description, setDescription] = React.useState("");
-      const [duration, setDuration] = React.useState(60);
-      const [newQuestion, setNewQuestion] = React.useState("");
-      const [status, setStatus] = React.useState("");
-      const addQuestion = () => {
-        if (newQuestion.trim()) {
-          setQuestions([...questions, { question: newQuestion }]);
-          setNewQuestion("");
-        }
-      };
-      const removeQuestion = idx => {
-        setQuestions(questions.filter((_, i) => i !== idx));
-      };
-      const handleSubmit = async e => {
-        e.preventDefault();
-        setStatus("");
-        try {
-          // Convert questions to required format
-          const formattedQuestions = questions.map(q =>
-            typeof q === 'string' ? { question: q } : q
-          );
-          await examsAPI.create({ title, description, durationMinutes: duration, questions: formattedQuestions });
-          setStatus("Exam created successfully!");
-          setTitle("");
-          setDescription("");
-          setDuration(60);
-          setQuestions([]);
-        } catch {
-          setStatus("Error creating exam.");
-        }
-      };
-    const [students, setStudents] = React.useState([]);
-    const [selectedStudentId, setSelectedStudentId] = React.useState('');
-    React.useEffect(() => {
-      studentAPI.getAll()
-        .then(res => {
-          let data = res.data;
-          if (!Array.isArray(data)) {
-            if (data && Array.isArray(data.students)) {
-              data = data.students;
-            } else {
-              data = [];
-            }
-          }
-          setStudents(data);
-        })
-        .catch(() => setStudents([]));
-    }, []);
-  const [exams, setExams] = React.useState([]);
-  React.useEffect(() => {
-    examsAPI.getAll()
-      .then(res => {
-        let data = res.data;
-        if (!Array.isArray(data)) {
-          // If response is an object, try to extract array
-          if (data && Array.isArray(data.exams)) {
-            data = data.exams;
-          } else {
-            data = [];
-          }
-        }
-        setExams(data);
-      })
-      .catch(() => setExams([]));
-  }, []);
-  const [analysisResult, setAnalysisResult] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-  const [submissionsByExam, setSubmissionsByExam] = React.useState({});
-  const handleAnalyzeAnswers = async (examId) => {
-    setLoading(true);
-    setAnalysisResult(null);
-    try {
-      // Fetch all student submissions for this exam
-      const res = await examsAPI.getAllSubmissions();
-      const submissions = Array.isArray(res.data) ? res.data : res.data?.submissions || [];
-      // Filter submissions for this exam
-      const examSubmissions = submissions.filter(sub => sub.examId === examId);
-      // Analyze answers for each student
-      const analysisPromises = examSubmissions.map(sub => resumeAnalysisAPI.analyze({ answers: sub.answers, studentId: sub.studentId }));
-      const results = await Promise.all(analysisPromises);
-      setAnalysisResult(results);
-    } catch (err) {
-      setAnalysisResult('Error analyzing answers');
-    }
-    setLoading(false);
-  };
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import ExamDesk from './ExamDesk';
+import { jobRequisitionsAPI, placementsAPI, interviewAPI, applicationsAPI, jobAPI, studentAPI, notificationsAPI } from '../../services/api';
+import { onboardingAPI } from '../../services/api';
+import ImageCropUpload from '../../components/common/ImageCropUpload';
 
-  // Fetch all submissions for all exams on mount
-  React.useEffect(() => {
-    examsAPI.getAllSubmissions()
-      .then(res => {
-        const submissions = Array.isArray(res.data) ? res.data : res.data?.submissions || [];
-        // Group submissions by examId
-        const grouped = {};
-        submissions.forEach(sub => {
-          if (!grouped[sub.examId]) grouped[sub.examId] = [];
-          grouped[sub.examId].push(sub);
-        });
-        setSubmissionsByExam(grouped);
-      })
-      .catch(() => setSubmissionsByExam({}));
-  }, []);
-  return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h2 className="text-3xl font-bold text-blue-400">Exam Desk</h2>
-      <p className="text-white text-lg">Conduct exams and analyze answers automatically using AI.</p>
-      <div className="bg-slate-800 p-6 rounded-xl mb-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-lg font-semibold text-white mb-2">Exam Title</label>
-            <input
-              className="w-full p-3 border border-blue-400 rounded-lg text-white bg-slate-700 placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Enter exam title"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-lg font-semibold text-white mb-2">Exam Description</label>
-            <textarea
-              className="w-full p-3 border border-blue-400 rounded-lg text-white bg-slate-700 placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Enter exam description"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-lg font-semibold text-white mb-2">Duration (minutes)</label>
-            <input
-              className="w-full p-3 border border-blue-400 rounded-lg text-white bg-slate-700 placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              type="number"
-              min={10}
-              max={180}
-              placeholder="Duration (minutes)"
-              value={duration}
-              onChange={e => setDuration(Number(e.target.value))}
-            />
-          </div>
-          <div>
-            <label className="block text-lg font-semibold text-white mb-2">Questions</label>
-            <div className="flex mb-2 gap-2">
-              <input
-                className="flex-1 p-3 border border-blue-400 rounded-lg text-white bg-slate-700 placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder="Add a question"
-                value={newQuestion}
-                onChange={e => setNewQuestion(e.target.value)}
-              />
-              <button type="button" className="px-5 py-2 bg-blue-700 text-white rounded-lg font-bold shadow-sm hover:bg-blue-800 transition" onClick={addQuestion}>
-                Add
-              </button>
-            </div>
-            <ul className="space-y-2">
-              {questions.map((q, idx) => (
-                <li key={idx} className="flex items-center bg-slate-700 border border-blue-400 rounded-lg px-3 py-2">
-                  <span className="flex-1 text-white font-medium">{q}</span>
-                  <button type="button" className="ml-2 text-red-400 font-bold hover:text-red-600" onClick={() => removeQuestion(idx)}>
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <button type="submit" className="w-full py-3 bg-green-700 text-white rounded-lg font-bold text-lg shadow-md hover:bg-green-800 transition">
-            Create Exam
-          </button>
-          {status && <div className="mt-2 text-center text-lg text-emerald-400 font-bold">{status}</div>}
-        </form>
-      </div>
-      <div className="mt-8">
-        {exams.length === 0 ? (
-          <div className="text-gray-300 text-center text-lg mt-8">No exams found. Create an exam to get started.</div>
-        ) : (
-          <div>
-            <table className="w-full text-sm border mt-8">
-              <thead>
-                <tr className="bg-blue-900 text-blue-200">
-                  <th className="px-4 py-2">Title</th>
-                  <th className="px-4 py-2">Date</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {exams.map(exam => (
-                  <React.Fragment key={exam._id}>
-                    <tr className="border-b text-white">
-                      <td className="px-4 py-2 font-semibold">{exam.title}</td>
-                      <td className="px-4 py-2">{exam.date || '-'}</td>
-                      <td className="px-4 py-2">{exam.status || 'Scheduled'}</td>
-                      <td className="px-4 py-2 flex gap-2 items-center">
-                        <button className="px-3 py-1 rounded bg-emerald-600 text-white text-xs" onClick={() => handleAnalyzeAnswers(exam._id)} disabled={loading}>
-                          {loading ? 'Analyzing...' : 'Analyze Answers'}
-                        </button>
-                        <button className="px-3 py-1 rounded bg-blue-600 text-white text-xs" onClick={() => alert('Conduct Interview for ' + exam.title)}>
-                          Conduct Interview
-                        </button>
-                      </td>
-                    </tr>
-                    {/* Render submitted answers and marks for this exam */}
-                    {submissionsByExam[exam._id] && submissionsByExam[exam._id].length > 0 && (
-                      <tr>
-                        <td colSpan={4} className="bg-slate-900 p-4">
-                          <div className="text-lg font-bold text-blue-300 mb-2">Submitted Answers & Marks</div>
-                          <table className="w-full text-xs border">
-                            <thead>
-                              <tr className="bg-blue-800 text-blue-100">
-                                <th className="px-2 py-1">Student ID</th>
-                                <th className="px-2 py-1">Answers</th>
-                                <th className="px-2 py-1">Score</th>
-                                <th className="px-2 py-1">Result</th>
-                                <th className="px-2 py-1">Feedback</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {submissionsByExam[exam._id].map((sub, idx) => (
-                                <tr key={sub._id || idx} className="border-b border-slate-700">
-                                  <td className="px-2 py-1">{sub.studentId}</td>
-                                  <td className="px-2 py-1 whitespace-pre-wrap max-w-xs">{Array.isArray(sub.answers) ? sub.answers.map((a, i) => (<div key={i}>{a}</div>)) : sub.answers}</td>
-                                  <td className="px-2 py-1">{sub.score ?? 'N/A'}</td>
-                                  <td className="px-2 py-1">{sub.result ?? '-'}</td>
-                                  <td className="px-2 py-1">{sub.feedback ?? '-'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-      {analysisResult && (
-        <div className="mt-8 bg-slate-800 p-6 rounded-xl text-white">
-          <h3 className="text-xl font-bold mb-4">Analysis Results</h3>
-          {typeof analysisResult === 'string' ? (
-            <div>{analysisResult}</div>
-          ) : (
-            <ul className="space-y-2">
-              {analysisResult.map((result, idx) => (
-                <li key={idx} className="border-b border-slate-700 pb-2">
-                  Student {result?.data?.studentId || idx}: Score {result?.data?.score || 'N/A'}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 // Utility to normalize avatar URL
 function getAvatarUrl(avatar) {
   if (!avatar) return '';
@@ -267,7 +13,48 @@ function getAvatarUrl(avatar) {
   }
   return avatar;
 }
-import React, { useState, useEffect, useRef } from 'react';
+
+// Mock data for development fallback
+const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+const mockOffers = [
+  {
+    id: 'OFFER001',
+    candidateName: 'Aarav Mehta',
+    position: 'Frontend Developer',
+    status: 'Pending',
+    offerDate: '2026-03-01',
+    salary: '₹12 LPA',
+    joiningDate: '2026-06-15',
+    recruiter: 'HR Team',
+  },
+  {
+    id: 'OFFER002',
+    candidateName: 'Isha Reddy',
+    position: 'Backend Developer',
+    status: 'Accepted',
+    offerDate: '2026-03-05',
+    salary: '₹14 LPA',
+    joiningDate: '2026-07-01',
+    recruiter: 'HR Team',
+  },
+];
+
+const mockOnboardingTasks = [
+  {
+    id: 'TASK001',
+    candidateName: 'Aarav Mehta',
+    task: 'Submit Documents',
+    status: 'Pending',
+    dueDate: '2026-06-01',
+  },
+  {
+    id: 'TASK002',
+    candidateName: 'Isha Reddy',
+    task: 'Complete Orientation',
+    status: 'In Progress',
+    dueDate: '2026-07-10',
+  },
+];
 import HRJobs from './Jobs';
 import VideoConference from '../../components/VideoConference';
 import Modal from '../../components/Modal';
@@ -286,187 +73,10 @@ import {
   Filler
 } from 'chart.js';
 
+
 import EnhancedEmailModal from "../../components/EnhancedEmailModal";
-import ImageCropUpload from "../../components/common/ImageCropUpload";
-import { studentAPI, statsAPI, jobAPI, placementsAPI, examsAPI, resumeAnalysisAPI, onboardingAPI, authAPI, applicationsAPI, jobRequisitionsAPI, placementStatsAPI, notificationsAPI, aiAPI } from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
-import jsPDF from 'jspdf';
 
-
-
-// Fallback mock data
-const mockJobs = [
-  {
-    id: 'JOB001',
-    title: 'Frontend Developer',
-    dept: 'Engineering',
-    applicants: 12,
-    views: 120,
-    status: 'Open',
-    postedDate: '2026-02-20',
-    location: 'Remote',
-    type: 'Full-time',
-    salary: '₹12,00,000',
-    description: 'React, Tailwind, REST APIs',
-    urgency: 'Medium',
-    budget: '₹12,00,000',
-    applicationsToday: 2,
-  },
-  {
-    id: 'JOB002',
-    title: 'Backend Developer',
-    dept: 'Engineering',
-    applicants: 8,
-    views: 90,
-    status: 'Closed',
-    postedDate: '2026-01-15',
-    location: 'Bangalore',
-    type: 'Full-time',
-    salary: '₹15,00,000',
-    description: 'Node.js, Express, MongoDB',
-    urgency: 'High',
-    budget: '₹15,00,000',
-    applicationsToday: 1,
-  },
-  {
-    id: 'JOB003',
-    title: 'HR Manager',
-    dept: 'Human Resources',
-    applicants: 5,
-    views: 60,
-    status: 'Open',
-    postedDate: '2026-02-10',
-    location: 'Mumbai',
-    type: 'Full-time',
-    salary: '₹18,00,000',
-    description: 'Recruitment, Payroll, Compliance',
-    urgency: 'Critical',
-    budget: '₹18,00,000',
-    applicationsToday: 0,
-  },
-];
-
-const mockOnboardingTasks = [
-  {
-    id: 'ONB001',
-    employeeName: 'Priya Sharma',
-    email: 'priya.sharma@example.com',
-    position: 'Backend Engineer',
-    department: 'Engineering',
-    joinDate: '2026-03-01',
-    buddy: 'John Doe',
-    progress: 80,
-    tasks: [
-      { name: 'NDA signed', status: 'done' },
-      { name: 'Laptop setup', status: 'done' },
-      { name: 'HR orientation', status: 'in-progress' },
-      { name: 'Team intro', status: 'pending' }
-    ]
-  },
-  {
-    id: 'ONB002',
-    employeeName: 'Deepak Singh',
-    email: 'deepak.singh@example.com',
-    position: 'Full Stack Developer',
-    department: 'Engineering',
-    joinDate: '2026-03-05',
-    buddy: 'Jane Smith',
-    progress: 60,
-    tasks: [
-      { name: 'NDA signed', status: 'done' },
-      { name: 'Laptop setup', status: 'in-progress' },
-      { name: 'HR orientation', status: 'pending' }
-    ]
-  }
-];
-
-const mockOffers = [
-  {
-    id: 'OFFER001',
-    candidateName: 'Priya Sharma',
-    position: 'Backend Engineer',
-    salary: '₹13,00,000',
-    equity: 'full-time',
-    bonus: 'Joining Bonus ₹50,000',
-    status: 'Offered',
-    expiryDays: 7,
-    progress: 60,
-    approver: 'John Doe',
-    documents: ['Offer Letter.pdf', 'NDA.pdf']
-  },
-  {
-    id: 'OFFER002',
-    candidateName: 'Deepak Singh',
-    position: 'Full Stack Developer',
-    salary: '₹15,00,000',
-    equity: 'full-time',
-    bonus: 'Relocation Bonus ₹30,000',
-    status: 'Accepted',
-    expiryDays: 0,
-    progress: 100,
-    approver: 'Jane Smith',
-    documents: ['Offer Letter.pdf']
-  },
-  {
-    id: 'OFFER003',
-    candidateName: 'Aisha Patel',
-    position: 'Senior Backend Engineer',
-    salary: '₹18,00,000',
-    equity: 'full-time',
-    bonus: 'Performance Bonus ₹1,00,000',
-    status: 'Rejected',
-    expiryDays: 0,
-    progress: 100,
-    approver: 'Marcus Chen',
-    documents: []
-  },
-  {
-    id: 'OFFER004',
-    candidateName: 'Elena Rossi',
-    position: 'DevOps Lead',
-    salary: '₹20,00,000',
-    equity: 'full-time',
-    bonus: 'Stock Options',
-    status: 'Offered',
-    expiryDays: 3,
-    progress: 60,
-    approver: 'Liam Nguyen',
-    documents: ['Offer Letter.pdf', 'Benefits.pdf']
-  }
-];
-
-const mockInterviews = [
-  {
-      id: 'INT001',
-      candidateName: 'Priya Sharma',
-      position: 'Backend Engineer',
-      date: '2026-02-25',
-      startTime: '10:00',
-      endTime: '10:45',
-      duration: 45,
-      interviewer: 'John Doe',
-      location: 'Zoom',
-      type: 'Virtual',
-      status: 'Scheduled',
-      rating: 4,
-      roomId: 'room-001',
-  },
-  {
-      id: 'INT002',
-      candidateName: 'Deepak Singh',
-      position: 'Full Stack Developer',
-      date: '2026-02-26',
-      startTime: '14:00',
-      endTime: '15:00',
-      duration: 60,
-      interviewer: 'Jane Smith',
-      location: 'Onsite',
-      type: 'In-person',
-      status: 'Completed',
-      rating: 5,
-      roomId: 'room-002',
-  },
-];
+import ProfileModal from '../../components/common/ProfileModal';
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -498,7 +108,10 @@ import {
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 const HRDashboard = () => {
+      // State for New Job modal
+      const [showCreateModal, setShowCreateModal] = useState(false);
     // Inline StatCard component for analytics cards
     const StatCard = ({ icon: Icon, label, value, trend, color, details }) => (
       <div className="border p-6 rounded-2xl hover:border-indigo-500/50 transition-colors cursor-default group bg-white/5 dark:bg-slate-800/60">
@@ -540,31 +153,6 @@ const HRDashboard = () => {
         URL.revokeObjectURL(url);
       };
     // Custom scrollbar CSS for consistent styling
-    const customScrollbar = `
-      /* width */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      /* Track */
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      /* Handle */
-      ::-webkit-scrollbar-thumb {
-        background: #8884;
-        border-radius: 8px;
-      }
-      /* Handle on hover */
-      ::-webkit-scrollbar-thumb:hover {
-        background: #8888;
-      }
-      /* Firefox */
-      * {
-        scrollbar-width: thin;
-        scrollbar-color: #8884 transparent;
-      }
-    `;
   // HR Analytics State
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -608,7 +196,93 @@ const HRDashboard = () => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({ status: 'all', department: 'all' });
+  const [filters, setFilters] = useState({
+    status: 'all',
+    department: 'all',
+    skills: [],
+    minCgpa: 0,
+    branch: 'all',
+    degree: 'all',
+    gender: 'all',
+  });
+          {/* Advanced Filter Bar */}
+          <div className="flex flex-wrap gap-4 mb-6 items-center justify-between w-full max-w-7xl mx-auto">
+            <input
+              type="text"
+              placeholder="Search by name or branch..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="px-4 py-2.5 bg-slate-800/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-w-[180px]"
+            />
+            <select
+              value={filters.status}
+              onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+              className="px-4 py-2.5 bg-slate-800/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="all">All Status</option>
+              <option value="placed">Placed</option>
+              <option value="unplaced">Unplaced</option>
+              <option value="interviewing">Interviewing</option>
+            </select>
+            <select
+              value={filters.branch}
+              onChange={e => setFilters(f => ({ ...f, branch: e.target.value }))}
+              className="px-4 py-2.5 bg-slate-800/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="all">All Branches</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="MECH">MECH</option>
+              <option value="EEE">EEE</option>
+            </select>
+            <select
+              value={filters.degree}
+              onChange={e => setFilters(f => ({ ...f, degree: e.target.value }))}
+              className="px-4 py-2.5 bg-slate-800/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="all">All Degrees</option>
+              <option value="B.Tech">B.Tech</option>
+              <option value="M.Tech">M.Tech</option>
+              <option value="MBA">MBA</option>
+            </select>
+            <select
+              value={filters.gender}
+              onChange={e => setFilters(f => ({ ...f, gender: e.target.value }))}
+              className="px-4 py-2.5 bg-slate-800/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="all">All Genders</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+            <select
+              value={filters.minCgpa}
+              onChange={e => setFilters(f => ({ ...f, minCgpa: parseFloat(e.target.value) }))}
+              className="px-4 py-2.5 bg-slate-800/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value={0}>All CGPA</option>
+              <option value={7.0}>CGPA ≥ 7.0</option>
+              <option value={7.5}>CGPA ≥ 7.5</option>
+              <option value={8.0}>CGPA ≥ 8.0</option>
+              <option value={8.5}>CGPA ≥ 8.5</option>
+              <option value={9.0}>CGPA ≥ 9.0</option>
+            </select>
+            {/* Skills Multi-select (simple version) */}
+            <input
+              type="text"
+              placeholder="Filter by skill (comma separated)"
+              value={filters.skills.join(', ')}
+              onChange={e => setFilters(f => ({ ...f, skills: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+              className="px-4 py-2.5 bg-slate-800/50 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-w-[180px]"
+            />
+            <button
+              onClick={() => setFilters({ status: 'all', department: 'all', skills: [], minCgpa: 0, branch: 'all', degree: 'all', gender: 'all' })}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl font-medium transition-all"
+            >
+              Reset Filters
+            </button>
+          </div>
+    const [talentSort, setTalentSort] = useState('score-desc');
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('hr_dashboard_theme') || 'system');
@@ -616,7 +290,7 @@ const HRDashboard = () => {
   const isDark = resolvedTheme === 'dark' || (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [showEmailModal, setShowEmailModal] = useState(false);
   // Interviews state
-  const [interviews, setInterviews] = useState(mockInterviews);
+  const [interviews, setInterviews] = useState([]);
   
   // Schedule Placement Drive States
   const [showScheduleDriveModal, setShowScheduleDriveModal] = useState(false);
@@ -706,13 +380,12 @@ const HRDashboard = () => {
       return defaults;
     }
   });
+  const fetchAllDataRef = useRef(null);
   const [webhookSending, setWebhookSending] = useState(false);
   const [webhookLastStatus, setWebhookLastStatus] = useState(() => localStorage.getItem('hr_webhook_last_status_v1') || '');
   const [approvalComments, setApprovalComments] = useState({});
   const [approvalHistory, setApprovalHistory] = useState([]);
   const [schedulerRoleFilter, setSchedulerRoleFilter] = useState('all');
-  const [suggestedInterviewSlots, setSuggestedInterviewSlots] = useState([]);
-  const [interviewConflicts, setInterviewConflicts] = useState([]);
   const [crmNotes, setCrmNotes] = useState({});
   const [reportSchedule, setReportSchedule] = useState(() => {
     const stored = localStorage.getItem('hr_report_schedule_v1');
@@ -733,6 +406,27 @@ const HRDashboard = () => {
     };
   });
   const unreadNotificationsCount = notifications.filter((notification) => !notification.read).length;
+
+  // Approve/Reject handlers for requisitions
+  const handleApproveRequisition = async (req) => {
+    try {
+      await jobRequisitionsAPI.approve(req._id || req.id);
+      setJobRequisitions((prev) => prev.map(r => (r._id || r.id) === (req._id || req.id) ? { ...r, status: 'In Review' } : r));
+      pushFeatureActivity('Approved requisition', req.title);
+    } catch (error) {
+      alert('Failed to approve requisition: ' + (error?.response?.data?.message || error.message));
+    }
+  };
+
+  const handleRejectRequisition = async (req) => {
+    try {
+      await jobRequisitionsAPI.reject(req._id || req.id);
+      setJobRequisitions((prev) => prev.map(r => (r._id || r.id) === (req._id || req.id) ? { ...r, status: 'Closed' } : r));
+      pushFeatureActivity('Rejected requisition', req.title);
+    } catch (error) {
+      alert('Failed to reject requisition: ' + (error?.response?.data?.message || error.message));
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('hr_saved_reports_v1', JSON.stringify(savedReports));
@@ -788,7 +482,7 @@ const HRDashboard = () => {
   };
 
   const getStudentForApplication = (application) => {
-    const studentObj = application?.studentId;
+    const studentObj = application?.student || application?.studentId;
     const studentId = typeof studentObj === 'object' ? (studentObj?._id || studentObj?.id) : studentObj;
     if (typeof studentObj === 'object' && studentObj) return studentObj;
     return students.find((student) => student._id === studentId || student.id === studentId) || null;
@@ -846,21 +540,128 @@ const HRDashboard = () => {
     }).sort((a, b) => b.score - a.score);
   };
 
+  const getStudentUserId = (student) => String(student?.user?._id || student?.user?.id || student?._id || student?.id || '').trim();
+  const getStudentDisplayName = (student) => student?.user?.name || student?.name || 'Unknown Student';
+  const getStudentEmail = (student) => String(student?.user?.email || student?.email || '').trim();
+
+  const buildOfferCandidates = () => {
+    const candidateMap = new Map();
+    
+    console.log('buildOfferCandidates called with applications count:', applications.length);
+    if (applications.length > 0) {
+      console.log('First application:', applications[0]);
+    }
+
+    const addCandidateFromApplication = (application) => {
+      // Filter only applications with status "selected"
+      const appStatus = String(application?.status || '').toLowerCase();
+      if (appStatus !== 'selected') {
+        return;
+      }
+
+      // Use application's populated student data directly
+      const appStudent = application?.student;
+      if (!appStudent) {
+        console.log('No student in application:', application);
+        return;
+      }
+
+      // Extract from nested structure (student.user) or flat (student)
+      const userId = String(appStudent?.user?._id || appStudent?.user?.id || appStudent?._id || appStudent?.id || '').trim();
+      
+      // Try multiple email paths
+      let email = '';
+      if (appStudent?.user?.email) {
+        email = String(appStudent.user.email).trim().toLowerCase();
+      } else if (appStudent?.email) {
+        email = String(appStudent.email).trim().toLowerCase();
+      }
+      
+      const name = appStudent?.user?.name || appStudent?.name || 'Unknown';
+      const rollNumber = String(appStudent?.rollNumber || '').trim();
+      
+      console.log(`Processing application - Email: "${email}", Name: "${name}", UserId: "${userId}", StudentObj:`, appStudent);
+      
+      // Skip if no email found
+      if (!email) {
+        console.log('⚠️ No email found for application:', application);
+        return;
+      }
+
+      const uniqueKey = email;
+      const applicationSummary = {
+        jobTitle: application?.job?.title || application?.jobTitle || 'Applied Job',
+        companyName: application?.job?.company || application?.company || '',
+        status: String(application?.status || 'applied').toLowerCase(),
+        appliedAt: application?.createdAt || '',
+      };
+
+      // If this candidate already exists, just add the application
+      const existingCandidate = candidateMap.get(uniqueKey);
+      if (existingCandidate) {
+        existingCandidate.applications.push(applicationSummary);
+        return;
+      }
+
+      // Create new candidate entry
+      candidateMap.set(uniqueKey, {
+        key: uniqueKey,
+        source: 'application',
+        student: appStudent,
+        userId,
+        name,
+        email,
+        rollNumber,
+        branch: appStudent?.branch || '',
+        degree: appStudent?.degree || '',
+        cgpa: appStudent?.cgpa ?? '',
+        phone: appStudent?.phoneNumber || appStudent?.phone || appStudent?.user?.phone || '',
+        backlogs: appStudent?.backlogs ?? '',
+        placementStatus: appStudent?.placementStatus || '',
+        skills: Array.isArray(appStudent?.skills) ? appStudent.skills : [],
+        applications: [applicationSummary],
+      });
+    };
+
+    // Only process applications, ignore trying to find students separately
+    applications.forEach((application) => addCandidateFromApplication(application));
+
+    const result = Array.from(candidateMap.values()).sort((a, b) => a.email.localeCompare(b.email));
+    console.log('✅ buildOfferCandidates result:', result);
+    console.log(`📊 Total candidates found: ${result.length}`);
+    return result;
+  };
+
+  const offerCandidates = useMemo(() => buildOfferCandidates(), [applications]);
+
   const fetchNotifications = async () => {
     if (!token || !canAccessHRDashboard) return;
     setNotificationsLoading(true);
     setNotificationsError('');
     try {
-      const response = await notificationsAPI.getNotifications(false, 20);
-      setNotifications(response?.data?.notifications || []);
+      const response = await notificationsAPI.getAllNotificationsForHR(100, false);
+      const notifData = response?.data?.notifications;
+      
+      if (Array.isArray(notifData)) {
+        setNotifications(notifData);
+      } else {
+        console.warn('Unexpected notification response format:', response?.data);
+        setNotifications([]);
+      }
     } catch (error) {
+      console.error('Error fetching notifications:', error?.response?.status, error?.response?.data || error.message);
+      
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         logout();
         navigate('/login');
         return;
       }
+      
+      // Don't show error, just empty list so UI doesn't break
       setNotifications([]);
-      setNotificationsError('Failed to load notifications');
+      if (error?.response?.status !== 404) {
+        setNotificationsError('');
+      }
     } finally {
       setNotificationsLoading(false);
     }
@@ -963,23 +764,55 @@ const HRDashboard = () => {
     setAnalyticsLoading(false);
   }, [dataLoading, dashboardStats, jobs, applications, interviews, placements, students]);
 
-  // Helper: fallback to mock data if backend fails or returns empty
-  const ensureOffers = (data) => (data && data.length > 0 ? data : mockOffers);
-  const ensureOnboardingTasks = (data) => (data && data.length > 0 ? data : mockOnboardingTasks);
-
-  // Fetch students from backend
+  // Auto-refresh analytics when data is updated
   useEffect(() => {
-    if (!token || !canAccessHRDashboard) return;
-    async function fetchStudents() {
+    const handleRefresh = async () => {
       try {
-        const res = await studentAPI.getAll();
-        setStudents(res.data.students || []);
+        // Refetch all data when refresh event is triggered
+        if (token && canAccessHRDashboard) {
+          const [jobsRes, appsRes, interviewsRes, placementsRes] = await Promise.allSettled([
+            jobAPI.getAll().catch(() => ({ data: { jobs: [] } })),
+            applicationsAPI.getAll().catch(() => ({ data: { applications: [] } })),
+            interviewAPI.getAll ? interviewAPI.getAll().catch(() => ({ data: { interviews: [] } })) : Promise.resolve({ data: { interviews: [] } }),
+            placementsAPI.getAll().catch(() => ({ data: { placements: [] } }))
+          ]);
+          
+          if (jobsRes.status === 'fulfilled') setJobs(jobsRes.value.data.jobs || []);
+          if (appsRes.status === 'fulfilled') setApplications(appsRes.value.data.applications || []);
+          if (interviewsRes.status === 'fulfilled') setInterviews(interviewsRes.value.data.interviews || []);
+          if (placementsRes.status === 'fulfilled') setPlacements(placementsRes.value.data.placements || []);
+        }
       } catch (err) {
-        setStudents([]);
+        console.error('Error refreshing analytics data:', err);
       }
+    };
+
+    // Set up periodic refresh every 30 seconds
+    const refreshInterval = setInterval(handleRefresh, 30000);
+
+    // Listen for refresh events from broadcast channel
+    let refreshChannel = null;
+    if (typeof window !== 'undefined' && window.BroadcastChannel) {
+      refreshChannel = new window.BroadcastChannel('hr-dashboard-refresh');
+      refreshChannel.onmessage = () => handleRefresh();
     }
-    fetchStudents();
+
+    // Also listen for custom events
+    const handleCustomRefresh = () => handleRefresh();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hr:refresh', handleCustomRefresh);
+    }
+
+    return () => {
+      clearInterval(refreshInterval);
+      if (refreshChannel) refreshChannel.close();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('hr:refresh', handleCustomRefresh);
+      }
+    };
   }, [token, canAccessHRDashboard]);
+
+
 
   // Fetch placements from backend
   useEffect(() => {
@@ -1010,37 +843,37 @@ const HRDashboard = () => {
   }, [token, canAccessHRDashboard]);
 
 
-  // Fetch offers from backend (if API exists), fallback to mockOffers
+  // Fetch offers from backend
   useEffect(() => {
     if (!token || !canAccessHRDashboard) return;
     async function fetchOffers() {
       try {
         if (placementsAPI.getOffers) {
           const res = await placementsAPI.getOffers();
-          setOffers(ensureOffers(res.data.offers));
+          setOffers(res.data.offers || []);
         } else {
-          setOffers(mockOffers);
+          setOffers([]);
         }
       } catch (err) {
-        setOffers(mockOffers);
+        setOffers([]);
       }
     }
     fetchOffers();
   }, [token, canAccessHRDashboard]);
 
-  // Fetch onboarding tasks from backend (if API exists), fallback to mockOnboardingTasks
+  // Fetch onboarding tasks from backend
   useEffect(() => {
     if (!token || !canAccessHRDashboard) return;
     async function fetchOnboardingTasks() {
       try {
         if (onboardingAPI.getAll) {
           const res = await onboardingAPI.getAll();
-          setOnboardingTasks(ensureOnboardingTasks(res.data.onboarding || res.data.onboardingTasks));
+          setOnboardingTasks(res.data.onboarding || res.data.onboardingTasks || []);
         } else {
-          setOnboardingTasks(mockOnboardingTasks);
+          setOnboardingTasks([]);
         }
       } catch (err) {
-        setOnboardingTasks(mockOnboardingTasks);
+        setOnboardingTasks([]);
       }
     }
     fetchOnboardingTasks();
@@ -1066,9 +899,15 @@ const HRDashboard = () => {
     async function fetchApplications() {
       try {
         const res = await applicationsAPI.getAll();
-        setApplications(res.data.applications || []);
+        console.log('Fetched applications from backend:', res.data);
+        const appList = res.data.applications || [];
+        console.log('Applications count:', appList.length);
+        if (appList.length > 0) {
+          console.log('First application structure:', appList[0]);
+        }
+        setApplications(appList);
       } catch (err) {
-        setApplications([]);
+        console.error('Failed to fetch applications:', err);
       }
     }
     fetchApplications();
@@ -1089,7 +928,6 @@ const HRDashboard = () => {
   }, [token, canAccessHRDashboard]);
 
   // Fetch analytics from backend (already present, but ensure fallback is only used if backend fails)
-  // (Removed duplicate/incorrect analytics fetching useEffect)
 
   // Profile Edit Modal States
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -1211,7 +1049,8 @@ const HRDashboard = () => {
     recruiterName: '',
     recruiterEmail: '',
     recruiterPhone: '',
-    notes: ''
+    notes: '',
+    placementType: 'on-campus',
   });
   const [offerError, setOfferError] = useState('');
   const [offerSubmitting, setOfferSubmitting] = useState(false);
@@ -1280,9 +1119,25 @@ const HRDashboard = () => {
   );
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+
+  // Resume parsing handler for a student
+  const handleParseResume = async (student) => {
+    setSelectedStudentForAnalysis(student);
+    setShowResumeModal(true);
+    setAnalysisLoading(true);
+    setAnalysisResult(null);
+    try {
+      const res = await resumeAnalysisAPI.analyze({ studentId: student._id || student.id, resume: student.resume });
+      setAnalysisResult(res.data);
+    } catch (err) {
+      setAnalysisResult({ error: 'Failed to analyze resume.' });
+    }
+    setAnalysisLoading(false);
+  };
   const [showJobPostModal, setShowJobPostModal] = useState(false);
   const [newJob, setNewJob] = useState({
     title: '',
+    company: '',
     position: '',
     description: '',
     salary: '',
@@ -1290,8 +1145,58 @@ const HRDashboard = () => {
     department: '',
     jobType: 'Full-time',
     skills: '',
-    urgency: 'Medium'
+    urgency: 'Medium',
   });
+  const [jobPostError, setJobPostError] = useState('');
+  const [jobPostSuccess, setJobPostSuccess] = useState('');
+  const [jobPostLoading, setJobPostLoading] = useState(false);
+
+  // Robust job posting handler
+  const postNewJob = async (e) => {
+    if (e) e.preventDefault();
+    setJobPostError('');
+    setJobPostSuccess('');
+    // Validation
+    if (!newJob.title.trim() || !newJob.company.trim() || !newJob.position.trim() || !newJob.location.trim()) {
+      setJobPostError('Please fill all required fields (Title, Company, Position, Location).');
+      return;
+    }
+    setJobPostLoading(true);
+    try {
+      // Prepare job data (format skills as array)
+      const jobData = {
+        ...newJob,
+        skills: newJob.skills
+          ? newJob.skills.split(',').map(s => s.trim()).filter(Boolean)
+          : [],
+      };
+      // Call backend API
+      const res = await import('../../services/api').then(m => m.jobAPI.create(jobData));
+      setJobPostSuccess('Job posted successfully!');
+      // Optionally update jobs list in UI
+      if (typeof setJobs === 'function') setJobs(prev => [res.data, ...(prev || [])]);
+      // Reset form
+      setNewJob({
+        title: '',
+        company: '',
+        position: '',
+        description: '',
+        salary: '',
+        location: '',
+        department: '',
+        jobType: 'Full-time',
+        skills: '',
+        urgency: 'Medium',
+      });
+      setTimeout(() => {
+        setShowJobPostModal(false);
+        setJobPostSuccess('');
+      }, 1200);
+    } catch (err) {
+      setJobPostError(err?.response?.data?.message || 'Failed to post job.');
+    }
+    setJobPostLoading(false);
+  };
 
   // ===== DATA FETCHING FROM BACKEND =====
   useEffect(() => {
@@ -1322,22 +1227,63 @@ const HRDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-refresh applications every 10 seconds for real-time visibility
+  // Auto-refresh the full dashboard every 10 seconds so stats reflect the latest jobs and applications
   useEffect(() => {
     if (!token || !canAccessHRDashboard) return;
-    const applicationRefreshInterval = setInterval(async () => {
+    const dashboardRefreshInterval = setInterval(async () => {
       try {
-        const applicationsRes = await applicationsAPI.getAll();
-        setApplications(applicationsRes.data.applications || []);
+        await fetchAllData();
       } catch (error) {
         if (error?.response?.status === 401 || error?.response?.status === 403) {
-          clearInterval(applicationRefreshInterval);
+          clearInterval(dashboardRefreshInterval);
         }
       }
-    }, 10000); // Refresh every 10 seconds
+    }, 10000);
 
-    return () => clearInterval(applicationRefreshInterval);
+    return () => clearInterval(dashboardRefreshInterval);
   }, [token, canAccessHRDashboard]);
+
+  // Listen to global `hr:refresh` events and refresh dashboard data.
+  // Debounce to avoid duplicate immediate refreshes when multiple mutations complete.
+  const refreshDebounceRef = useRef(null);
+  useEffect(() => {
+    if (!canAccessHRDashboard) return;
+    const handler = () => {
+      try {
+        if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+        refreshDebounceRef.current = setTimeout(() => {
+          if (typeof fetchAllDataRef.current === 'function') fetchAllDataRef.current();
+        }, 300);
+      } catch (e) {
+        // ignore
+      }
+    };
+    window.addEventListener('hr:refresh', handler);
+    return () => {
+      window.removeEventListener('hr:refresh', handler);
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    };
+  }, [canAccessHRDashboard]);
+
+  useEffect(() => {
+    if (!canAccessHRDashboard || typeof window === 'undefined' || typeof window.BroadcastChannel !== 'function') return;
+
+    const refreshChannel = new window.BroadcastChannel('hr-dashboard-refresh');
+    const handleMessage = (event) => {
+      if (event.data?.type !== 'hr:refresh') return;
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+      refreshDebounceRef.current = setTimeout(() => {
+        if (typeof fetchAllDataRef.current === 'function') fetchAllDataRef.current();
+      }, 300);
+    };
+
+    refreshChannel.addEventListener('message', handleMessage);
+    return () => {
+      refreshChannel.removeEventListener('message', handleMessage);
+      refreshChannel.close();
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    };
+  }, [canAccessHRDashboard]);
 
   // Handle Schedule Drive Save
   const handleScheduleDrive = async () => {
@@ -1467,27 +1413,15 @@ const HRDashboard = () => {
   };
 
   const handleOfferSubmit = async () => {
+
+
     setOfferError('');
-    const getStudentId = (student) => String(student?._id || student?.id || '').trim();
-    const getStudentEmail = (student) => String(student?.email || student?.user?.email || '').trim().toLowerCase();
+    const selectedEmail = String(offerForm.candidateEmail || '').trim().toLowerCase();
+    const selectedCandidate = offerCandidates.find((candidate) => String(candidate.email || '').trim().toLowerCase() === selectedEmail);
+    const resolvedStudentUserId = String(selectedCandidate?.userId || '').trim();
 
-    let resolvedStudentUserId = String(offerForm.studentUserId || '').trim();
-    const emailInput = String(offerForm.candidateEmail || '').trim().toLowerCase();
-
-    if (!resolvedStudentUserId && emailInput) {
-      const studentByEmail = students.find((student) => getStudentEmail(student) === emailInput);
-      if (studentByEmail) {
-        resolvedStudentUserId = getStudentId(studentByEmail);
-      }
-    }
-
-    if (!resolvedStudentUserId || !offerForm.companyName || !offerForm.roleTitle) {
-      setOfferError('Candidate, company name, and role title are required.');
-      return;
-    }
-
-    if (!/^[a-f\d]{24}$/i.test(resolvedStudentUserId)) {
-      setOfferError('Candidate must have a valid user ID. Please choose a valid candidate/email.');
+    if (!selectedCandidate || !resolvedStudentUserId || !offerForm.companyName || !offerForm.roleTitle) {
+      setOfferError('Select an applicant email, company name, and role title.');
       return;
     }
 
@@ -1498,7 +1432,8 @@ const HRDashboard = () => {
         ...offerPayload,
         studentUserId: resolvedStudentUserId,
         resultDate: offerForm.resultDate || undefined,
-        joiningDate: offerForm.joiningDate || undefined
+        joiningDate: offerForm.joiningDate || undefined,
+        placementType: offerForm.placementType || 'on-campus',
       };
       await placementsAPI.create(payload);
       setShowOfferModal(false);
@@ -1517,8 +1452,20 @@ const HRDashboard = () => {
         recruiterName: '',
         recruiterEmail: '',
         recruiterPhone: '',
-        notes: ''
+        notes: '',
+        placementType: 'on-campus',
       });
+                    <div>
+                      <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Placement Type</label>
+                      <select
+                        value={offerForm.placementType}
+                        onChange={(e) => setOfferForm((prev) => ({ ...prev, placementType: e.target.value }))}
+                        className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg"
+                      >
+                        <option value="on-campus">On-Campus</option>
+                        <option value="off-campus">Off-Campus (Self-Placed)</option>
+                      </select>
+                    </div>
       fetchAllData();
     } catch (error) {
       setOfferError(error.response?.data?.message || error.message || 'Failed to create offer');
@@ -1703,6 +1650,12 @@ const HRDashboard = () => {
     setApplicationFilters({ status: 'all', branch: 'all', minCGPA: 0, searchTerm: '' });
     setShowRequisitionAppsModal(true);
   };
+
+  useEffect(() => {
+    if (!showRequisitionAppsModal || !selectedRequisition) return;
+    const requisitionApps = applications.filter((app) => app.job?._id === selectedRequisition._id);
+    setRequisitionApplications(requisitionApps);
+  }, [applications, selectedRequisition, showRequisitionAppsModal]);
 
   // View detailed application
   const viewApplicationDetail = (app) => {
@@ -2236,6 +2189,7 @@ const HRDashboard = () => {
             id: csvStudent.studentId || csvStudent._id,
             name: csvStudent.name || `Student ${csvStudent.studentId}`,
             email: csvStudent.email,
+            rollNumber: csvStudent.rollNumber || csvStudent.studentId || csvStudent._id,
             age: csvStudent.age,
             gender: csvStudent.gender,
             degree: csvStudent.degree,
@@ -2360,6 +2314,10 @@ const HRDashboard = () => {
     }
   };
 
+  useEffect(() => {
+    fetchAllDataRef.current = fetchAllData;
+  }, [fetchAllData]);
+
   const toggleApplicantSelection = (applicationId) => {
     setSelectedApplicantIds((prev) => (
       prev.includes(applicationId)
@@ -2456,7 +2414,7 @@ const HRDashboard = () => {
         ...topMatches.map((row, index) => `${index + 1}. ${row.candidateName} for ${row.jobTitle} - score ${row.score}% - status ${row.status}`),
       ].join('\n');
 
-      const response = await aiAPI.chat({ message: prompt, history: [] });
+      const response = await aiAPI.chat({ message: prompt, history: [], role: 'hr' });
       const reply = response?.data?.reply || 'No AI insights generated.';
       setAiHiringInsight(reply);
       pushFeatureActivity('GenAI Insight', 'Generated hiring recommendations');
@@ -2671,7 +2629,7 @@ const HRDashboard = () => {
     setInterviewConflicts(conflicts.slice(0, 8));
   };
 
-  const generateOfferLetterPdf = (candidateName, roleTitle) => {
+  const generateOfferLetterPdf = async (candidateName, roleTitle) => {
     if (!currentPermissions.canGenerateOffer) {
       alert('Only HR/Admin can generate offer letters.');
       return;
@@ -2685,6 +2643,12 @@ const HRDashboard = () => {
     doc.text('This offer is subject to final approval and e-sign verification.', 20, 70);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 85);
     doc.save(`offer-${candidateName.replace(/\s+/g, '_')}-${Date.now()}.pdf`);
+    try {
+      await offerAPI.create({ candidateName, roleTitle, generatedAt: new Date().toISOString() });
+      alert('Offer letter saved to backend!');
+    } catch (err) {
+      alert('Failed to save offer letter to backend.');
+    }
     appendAudit('Offer Letter Generated', null, { candidateName, roleTitle });
     pushFeatureActivity('Offer Generator', `Offer letter generated for ${candidateName}`);
   };
@@ -2928,7 +2892,7 @@ const HRDashboard = () => {
         `Current Description: ${targetJob.description || 'Not provided'}`,
         'Return concise improved version with sections: Summary, Responsibilities, Required Skills, Benefits.',
       ].join('\n');
-      const response = await aiAPI.chat({ message: prompt, history: [] });
+      const response = await aiAPI.chat({ message: prompt, history: [], role: 'hr' });
       setJdEnhancement(response?.data?.reply || 'No JD enhancement generated.');
       pushFeatureActivity('Auto JD Enhancer', `Enhanced JD for ${targetJob.title || targetJob.position || 'role'}`);
     } catch (_error) {
@@ -2998,35 +2962,35 @@ const HRDashboard = () => {
     }
   };
 
-useEffect(() => {
-  const savedTheme = localStorage.getItem('hr_dashboard_theme') || 'system';
-  setTheme(savedTheme);
-  applyTheme(savedTheme);
 
-  // Listen for system changes if the current mode is 'system'
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  const handleSystemChange = () => {
-    if (localStorage.getItem('hr_dashboard_theme') === 'system' || !localStorage.getItem('hr_dashboard_theme')) {
-      applyTheme('system');
+  // THEME: Standardized theme logic for consistency
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('hr_dashboard_theme') || 'system';
+    setTheme(savedTheme);
+    applyTheme(savedTheme);
+
+    // Listen for system changes if the current mode is 'system'
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemChange = () => {
+      if (localStorage.getItem('hr_dashboard_theme') === 'system' || !localStorage.getItem('hr_dashboard_theme')) {
+        applyTheme('system');
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleSystemChange);
+    return () => mediaQuery.removeEventListener('change', handleSystemChange);
+  }, []);
+
+  const applyTheme = (mode) => {
+    const root = window.document.documentElement;
+    let actualTheme = mode;
+    if (mode === 'system') {
+      actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
+    root.classList.remove('light', 'dark');
+    root.classList.add(actualTheme);
+    setResolvedTheme(actualTheme);
   };
-
-  mediaQuery.addEventListener('change', handleSystemChange);
-  return () => mediaQuery.removeEventListener('change', handleSystemChange);
-}, []);
-
-const applyTheme = (mode) => {
-  const root = window.document.documentElement;
-  let actualTheme = mode;
-
-  if (mode === 'system') {
-    actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-
-  root.classList.remove('light', 'dark');
-  root.classList.add(actualTheme);
-  setResolvedTheme(actualTheme);
-};
 
 const persistHRSettings = async (nextConfig, nextTheme) => {
   try {
@@ -3095,22 +3059,22 @@ useEffect(() => {
 // ...existing code...
                     {/* Offer Details Section */}
                     <div className="mt-8">
-                      <h2 className="text-2xl font-black text-blue-700 dark:text-white drop-shadow-lg mb-4">Offer Details</h2>
+                      <h2 className="text-2xl font-black drop-shadow-lg mb-4 text-blue-700 dark:text-white">Offer Details</h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {offers && offers.length > 0 && offers.map((offer) => (
-                          <div key={offer.id} className="bg-slate-800/50 border border-white/10 rounded-xl p-6">
-                            <h3 className="text-xl font-black text-blue-900 dark:text-emerald-400 drop-shadow-lg mb-2">{offer.candidateName}</h3>
-                            <p className="text-blue-900 dark:text-white text-base mb-1">Position: <span className="font-bold text-blue-700 dark:text-blue-300">{offer.position}</span></p>
-                            <p className="text-blue-900 dark:text-white text-base mb-1">Salary: <span className="font-bold text-emerald-700 dark:text-emerald-300">{offer.salary}</span></p>
-                            <p className="text-blue-900 dark:text-white text-base mb-1">Equity: <span className="font-bold text-purple-700 dark:text-purple-300">{offer.equity}</span></p>
-                            <p className="text-blue-900 dark:text-white text-base mb-1">Bonus: <span className="font-bold text-amber-700 dark:text-amber-300">{offer.bonus}</span></p>
-                            <p className="text-blue-900 dark:text-white text-base mb-1">Status: <span className={`font-bold ${offer.status === 'Accepted' ? 'text-emerald-700 dark:text-emerald-400' : offer.status === 'Rejected' ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>{offer.status}</span></p>
-                            <p className="text-blue-900 dark:text-white text-base mb-1">Expiry Days: <span className="font-bold text-pink-700 dark:text-pink-300">{offer.expiryDays}</span></p>
-                            <p className="text-blue-900 dark:text-white text-base mb-1">Progress: <span className="font-bold text-blue-700 dark:text-blue-300">{offer.progress}%</span></p>
-                            <p className="text-blue-900 dark:text-white text-base mb-1">Approver: <span className="font-bold text-cyan-700 dark:text-cyan-300">{offer.approver}</span></p>
+                          <div key={offer.id} className="rounded-xl p-6 border transition-colors bg-white dark:bg-slate-800/70 border-gray-200 dark:border-white/10">
+                            <h3 className="text-xl font-black mb-2 drop-shadow-lg text-blue-900 dark:text-emerald-400">{offer.candidateName}</h3>
+                            <p className="text-base mb-1 text-blue-900 dark:text-white">Position: <span className="font-bold text-blue-700 dark:text-blue-300">{offer.position}</span></p>
+                            <p className="text-base mb-1 text-blue-900 dark:text-white">Salary: <span className="font-bold text-emerald-700 dark:text-emerald-300">{offer.salary}</span></p>
+                            <p className="text-base mb-1 text-blue-900 dark:text-white">Equity: <span className="font-bold text-purple-700 dark:text-purple-300">{offer.equity}</span></p>
+                            <p className="text-base mb-1 text-blue-900 dark:text-white">Bonus: <span className="font-bold text-amber-700 dark:text-amber-300">{offer.bonus}</span></p>
+                            <p className="text-base mb-1 text-blue-900 dark:text-white">Status: <span className={`font-bold ${offer.status === 'Accepted' ? 'text-emerald-700 dark:text-emerald-400' : offer.status === 'Rejected' ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>{offer.status}</span></p>
+                            <p className="text-base mb-1 text-blue-900 dark:text-white">Expiry Days: <span className="font-bold text-pink-700 dark:text-pink-300">{offer.expiryDays}</span></p>
+                            <p className="text-base mb-1 text-blue-900 dark:text-white">Progress: <span className="font-bold text-blue-700 dark:text-blue-300">{offer.progress}%</span></p>
+                            <p className="text-base mb-1 text-blue-900 dark:text-white">Approver: <span className="font-bold text-cyan-700 dark:text-cyan-300">{offer.approver}</span></p>
                             <div className="mt-2">
-                              <p className="text-xs text-slate-400 mb-1">Documents:</p>
-                              <ul className="list-disc list-inside text-slate-200">
+                              <p className="text-xs mb-1 text-slate-500 dark:text-slate-400">Documents:</p>
+                              <ul className="list-disc list-inside text-slate-700 dark:text-slate-200">
                                 {offer.documents.map((doc, idx) => (
                                   <li key={idx}>{doc}</li>
                                 ))}
@@ -3335,32 +3299,119 @@ useEffect(() => {
   const filteredTalent = (students.length > 0
     ? students
     : (isDevelopment ? [
-        // (Optional) Add mock data here ONLY for development if needed
+        {
+          id: 'TAL001',
+          name: 'Aarav Mehta',
+          branch: 'CSE',
+          degree: 'B.Tech',
+          age: 21,
+          gender: 'Male',
+          location: 'Hyderabad',
+          atsScore: 92,
+          skills: ['React', 'Node.js', 'MongoDB', 'Python'],
+          placementStatus: 'placed',
+        },
+        {
+          id: 'TAL002',
+          name: 'Isha Reddy',
+          branch: 'IT',
+          degree: 'B.Tech',
+          age: 22,
+          gender: 'Female',
+          location: 'Bangalore',
+          atsScore: 67,
+          skills: ['Java', 'Spring', 'SQL', 'AWS'],
+          placementStatus: 'interview',
+        },
+        {
+          id: 'TAL003',
+          name: 'Rohan Singh',
+          branch: 'ECE',
+          degree: 'B.Tech',
+          age: 21,
+          gender: 'Male',
+          location: 'Delhi',
+          atsScore: 78,
+          skills: ['VLSI', 'MATLAB', 'C++', 'Verilog'],
+          placementStatus: 'placed',
+        },
+        {
+          id: 'TAL004',
+          name: 'Sneha Patel',
+          branch: 'EEE',
+          degree: 'B.Tech',
+          age: 22,
+          gender: 'Female',
+          location: 'Mumbai',
+          atsScore: 54,
+          skills: ['Power Systems', 'Embedded C', 'AutoCAD', 'PLC'],
+          placementStatus: 'interview',
+        },
+        {
+          id: 'TAL005',
+          name: 'Aditya Kumar',
+          branch: 'MECH',
+          degree: 'B.Tech',
+          age: 23,
+          gender: 'Male',
+          location: 'Chennai',
+          atsScore: 83,
+          skills: ['SolidWorks', 'ANSYS', 'Thermodynamics', 'CNC'],
+          placementStatus: 'placed',
+        },
       ] : [])
-  ).filter(talent => {
-    const matchesSearch = talent.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               talent.branch?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filters.status === 'all' || talent.placementStatus === filters.status;
-    const matchesDept = filters.department === 'all' || talent.branch?.includes(filters.department);
-    return matchesSearch && matchesStatus && matchesDept;
-  }).slice(0, 50).map((student, idx) => ({
-    id: student._id || student.id || idx,
-    name: student.name || 'Vamsi valluri',
-    role: student.branch || 'Student',
-    location: student.location || 'Not Specified',
-    experience: 0,
-    score: student.atsScore || Math.floor(Math.random() * 30 + 70),
-    skills: student.skills ? (Array.isArray(student.skills) ? student.skills : student.skills.split(',')) : ['Skills Not Listed'],
-    status: student.placementStatus?.includes('placed') ? 'Placed' : 'Interviewing',
-    source: 'Campus Database',
-    lastContact: new Date().toLocaleDateString(),
-    _id: student._id || student.id,
-    branch: student.branch
-  }));
+  )
+    .map((student, idx) => ({
+      id: student._id || student.id || idx,
+      name: student.name || 'Student',
+      role: student.branch || 'Student',
+      location: student.location || 'N/A',
+      experience: student.experience ?? 'N/A',
+      score: student.atsScore ?? Math.floor(Math.random() * 30 + 70),
+      skills: student.skills ? (Array.isArray(student.skills) ? student.skills : student.skills.split(',')) : ['N/A'],
+      status: (student.placementStatus || '').toLowerCase().includes('placed') ? 'Placed' : 'Interviewing',
+      source: 'Campus Database',
+      lastContact: new Date().toLocaleDateString(),
+      _id: student._id || student.id,
+      branch: student.branch || 'N/A',
+      degree: student.degree || 'N/A',
+      age: student.age ?? 'N/A',
+      gender: student.gender || 'N/A',
+      email: student.email || 'N/A',
+      phone: student.phone || 'N/A',
+      cgpa: student.cgpa ?? 'N/A',
+      resume: student.resume || '',
+      placementStatus: student.placementStatus || 'N/A',
+      address: student.address || 'N/A',
+      dob: student.dob || 'N/A',
+      tenthMarks: student.tenthMarks ?? 'N/A',
+      twelfthMarks: student.twelfthMarks ?? 'N/A',
+      fatherName: student.fatherName || 'N/A',
+      motherName: student.motherName || 'N/A',
+      category: student.category || 'N/A',
+      nationality: student.nationality || 'N/A',
+      aadhar: student.aadhar || 'N/A',
+      pan: student.pan || 'N/A',
+      bloodGroup: student.bloodGroup || 'N/A',
+      hobbies: student.hobbies || 'N/A',
+      extraCurricular: student.extraCurricular || 'N/A',
+      projects: student.projects || [],
+      certifications: student.certifications || [],
+      languages: student.languages || 'N/A',
+      linkedin: student.linkedin || '',
+      github: student.github || '',
+      website: student.website || '',
+    }))
+    .sort((a, b) => {
+      if (talentSort === 'score-desc') return b.score - a.score;
+      if (talentSort === 'score-asc') return a.score - b.score;
+      if (talentSort === 'name-asc') return String(a.name || '').localeCompare(String(b.name || ''));
+      if (talentSort === 'name-desc') return String(b.name || '').localeCompare(String(a.name || ''));
+      return 0;
+    });
 
   // Quick Actions
   const quickActions = [
-    { icon: Plus, label: 'New Job Requisition', action: () => setCurrentView('jobs') },
     { icon: UserPlus, label: 'Schedule Interview', action: () => setCurrentView('interviews') },
     { icon: Brain, label: 'GenAI Hiring Hub', action: () => setCurrentView('smart-hiring') },
     { icon: FileText, label: 'Create Offer', action: () => setCurrentView('offers') },
@@ -3471,7 +3522,19 @@ useEffect(() => {
                         : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
                     }`}
                   >
-                    <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{notification.title}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{notification.title}</p>
+                      {notification.userId?.role && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          notification.userId.role === 'admin' ? 'bg-red-500/20 text-red-600 dark:text-red-400' :
+                          notification.userId.role === 'staff' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' :
+                          notification.userId.role === 'student' ? 'bg-green-500/20 text-green-600 dark:text-green-400' :
+                          'bg-gray-500/20 text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {notification.userId.role}
+                        </span>
+                      )}
+                    </div>
                     <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{notification.message}</p>
                   </button>
                 ))}
@@ -3482,32 +3545,219 @@ useEffect(() => {
       </div>
     );
 
-  // 2. Enhanced Jobs View
-  // Fix: Pass jobs prop to HRJobs and add fallback UI for blank/undefined jobs
-  const renderJobs = () => {
-    if (!Array.isArray(jobs)) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[300px] text-red-500 font-bold text-lg">
-          Jobs data unavailable.<br/>Please check backend connection.
+  // 2. Enhanced Jobs & Reqs View (Tabbed Modern Layout)
+  const [jobsReqsTab, setJobsReqsTab] = useState('jobs');
+  const renderJobsAndReqs = () => (
+    <div className="flex justify-center w-full">
+      <div className={`w-full max-w-6xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 ${isDark ? 'bg-slate-900' : 'bg-white'} rounded-2xl p-6 transition-colors`}>
+      {/* Analytics/Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <StatCard icon={Briefcase} label="Active Jobs" value={jobs?.filter(j => (j.status || 'active').toLowerCase() === 'active').length ?? 0} color="text-blue-500" />
+        <StatCard icon={CheckCircle} label="Total Applications" value={jobs?.reduce((sum, j) => sum + (j.applications || 0), 0) ?? 0} color="text-emerald-500" />
+        <StatCard icon={Star} label="Total Views" value={jobs?.reduce((sum, j) => sum + (j.views || 0), 0) ?? 0} color="text-purple-500" />
+        <StatCard icon={Users} label="Companies" value={new Set(jobs?.map(j => j.company)).size ?? 0} color="text-orange-500" />
+      </div>
+      <div className="flex justify-between items-center mb-8">
+        <h2 className={`text-3xl font-black drop-shadow-lg ${isDark ? 'text-white' : 'text-blue-700'}`}>Jobs & Requisitions</h2>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowJobPostModal(true)}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${isDark ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+          >
+            <Plus className="h-5 w-5" /> New Job
+          </button>
+          <button
+            onClick={() => setShowJobRequisitionModal(true)}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${isDark ? 'bg-gradient-to-r from-sky-700 to-blue-800 hover:from-sky-600 hover:to-blue-700 text-white' : 'bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white'}`}
+          >
+            <Plus className="h-5 w-5" /> New Requisition
+          </button>
         </div>
-      );
-    } else if (jobs.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[300px] text-blue-500 font-bold text-lg">
-          No jobs found.<br/>Create a new job to get started.
+      </div>
+      {/* Tabs - Improved Format */}
+      <div className="flex gap-4 mb-8">
+        <button
+          className={`px-8 py-3 rounded-xl font-bold text-lg shadow transition-all border-2 ${jobsReqsTab === 'jobs' ? (isDark ? 'border-blue-400 bg-blue-900 text-blue-200' : 'border-blue-600 bg-blue-50 text-blue-700') : (isDark ? 'border-slate-700 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-100 text-slate-500')}`}
+          onClick={() => setJobsReqsTab('jobs')}
+        >
+          <span className="mr-2">💼</span> Jobs
+        </button>
+        <button
+          className={`px-8 py-3 rounded-xl font-bold text-lg shadow transition-all border-2 ${jobsReqsTab === 'reqs' ? (isDark ? 'border-blue-400 bg-blue-900 text-blue-200' : 'border-blue-600 bg-blue-50 text-blue-700') : (isDark ? 'border-slate-700 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-100 text-slate-500')}`}
+          onClick={() => setJobsReqsTab('reqs')}
+        >
+          <span className="mr-2">📝</span> Requisitions
+        </button>
+      </div>
+      {/* Tab Content */}
+      {jobsReqsTab === 'jobs' ? (
+        <div>
+          <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>Job Listings (Grouped by Status)</h3>
+          {Array.isArray(jobs) && jobs.length > 0 ? (
+            ['active','draft','closed','expired'].map(status => {
+              const group = Array.from(new Map(jobs.map(j => [(j._id || j.id), j])).values()).filter(j => (j.status || 'active').toLowerCase() === status);
+              if (!group.length) return null;
+              return (
+                <div key={status} className="mb-8">
+                  <h4 className={`text-lg font-bold mb-2 mt-4 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{status.charAt(0).toUpperCase() + status.slice(1)} Jobs</h4>
+                  <HRJobs jobs={group} setJobs={setJobs} students={students} />
+                </div>
+              );
+            })
+          ) : (
+            <div className={`flex flex-col items-center justify-center min-h-[150px] font-bold text-lg ${isDark ? 'text-blue-300' : 'text-blue-500'}`}>
+              No jobs found.<br/>Create a new job to get started.
+            </div>
+          )}
         </div>
-      );
-    } else {
-      return <HRJobs jobs={jobs} setJobs={setJobs} />;
-    }
-  };
+      ) : (
+        <div>
+          <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>Job Requisitions (Grouped by Status)</h3>
+          {jobRequisitions.length > 0 ? (
+            ['open','published','closed','draft'].map(status => {
+              const group = Array.from(new Map(jobRequisitions.map(r => [(r._id || r.id), r])).values()).filter(r => (r.status || 'open').toLowerCase() === status);
+              if (!group.length) return null;
+              return (
+                <div key={status} className="mb-8">
+                  <h4 className={`text-lg font-bold mb-2 mt-4 ${isDark ? 'text-sky-300' : 'text-sky-700'}`}>{status.charAt(0).toUpperCase() + status.slice(1)} Requisitions</h4>
+                  <div className="grid gap-6">
+                    {group.map((req) => (
+                      <div key={req._id || req.id} className={`group ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-8 hover:border-sky-300 transition-all shadow-sm hover:shadow-lg`}>
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-4">
+                              <div>
+                                <h3 className={`text-2xl font-black bg-gradient-to-r from-sky-700 via-blue-700 to-indigo-700 bg-clip-text text-transparent transition-all mb-1`}>{req.title}</h3>
+                                <div className={`flex items-center gap-4 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}> 
+                                  <span className="flex items-center gap-1">
+                                    <Building2 className="h-4 w-4" /> {req.department}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Users className="h-4 w-4" /> {req.numberOfPositions} positions
+                                  </span>
+                                </div>
+                              </div>
+                              <span className={`px-3 py-1.5 rounded-full text-sm font-bold border ${getStatusColor(req.status)}`}>{req.status}</span>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm mb-6">
+                              <div key={`${req._id}-location`}>
+                                <p className={`text-xs uppercase tracking-wider mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Location</p>
+                                <p className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{req.location}</p>
+                              </div>
+                              <div key={`${req._id}-type`}>
+                                <p className={`text-xs uppercase tracking-wider mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Type</p>
+                                <p className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{req.employmentType}</p>
+                              </div>
+                              <div key={`${req._id}-experience`}>
+                                <p className={`text-xs uppercase tracking-wider mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Experience</p>
+                                <p className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{req.experience?.min || 0} - {req.experience?.max || 5} years</p>
+                              </div>
+                              <div key={`${req._id}-priority`} className="text-right">
+                                <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${
+                                  req.priority === 'Critical' ? 'text-red-400' :
+                                  req.priority === 'High' ? 'text-amber-400' : 'text-emerald-400'
+                                }`}>
+                                  {req.priority}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-3 pt-4 lg:pt-0 lg:border-l lg:border-slate-200 dark:lg:border-slate-700 lg:pl-8 lg:w-80">
+                            <button
+                              onClick={() => openEditJobRequisitionModal(req)}
+                              className={`flex-1 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2`}
+                            >
+                              <Edit className="h-5 w-5" /> Edit
+                            </button>
+                            {/* Approval Workflow Buttons */}
+                            {(String(req.status).toLowerCase() === 'open' || String(req.status).toLowerCase() === 'in review') && (
+                              <>
+                                <button
+                                  onClick={() => handleApproveRequisition(req)}
+                                  className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md"
+                                  title="Approve Requisition"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleRejectRequisition(req)}
+                                  className="flex-1 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md"
+                                  title="Reject Requisition"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => viewRequisitionApplications(req)}
+                              className={`flex-1 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2`}
+                              title="View Applications"
+                            >
+                              <Eye className="h-5 w-5" /> Applications
+                            </button>
+                            <button
+                              onClick={() => downloadRequisitionPDF(req)}
+                              className={`flex items-center justify-center p-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl text-white transition-all shadow-md`}
+                              title="Download PDF"
+                            >
+                              <Download className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className={`text-center py-12 ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-2xl`}>
+              <Briefcase className="h-16 w-16 text-slate-400 mx-auto mb-4 opacity-70" />
+              <h3 className="text-xl font-bold mb-2">No job requisitions</h3>
+              <p className={`mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Create your first job requisition to get started</p>
+              <button
+                onClick={() => setShowJobRequisitionModal(true)}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all"
+              >
+                Create Requisition
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      </div>
+    </div>
+  );
 
 
   // 3. Enhanced Talent Pool
+  // Bulk selection state
+  const [selectedTalentIds, setSelectedTalentIds] = useState([]);
+  const allTalentIds = filteredTalent.map(t => t.id || t._id);
+  const isAllSelected = allTalentIds.length > 0 && allTalentIds.every(id => selectedTalentIds.includes(id));
+  const handleSelectTalent = (id) => setSelectedTalentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const handleSelectAllTalent = () => setSelectedTalentIds(isAllSelected ? [] : allTalentIds);
+  const handleBulkEmail = () => {/* TODO: open email modal with selectedTalentIds */ setShowEmailModal(true); };
+  const handleBulkStatus = (status) => {/* TODO: update status for selectedTalentIds */ alert(`Set status '${status}' for ${selectedTalentIds.length} students`); };
+  const handleBulkExport = () => {/* TODO: export selectedTalentIds */ alert(`Exporting ${selectedTalentIds.length} students`); };
+
   const renderTalent = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-4xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">Talent Pool</h2>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4">
+          <h2 className="text-4xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">Talent Pool</h2>
+          <select
+            className="ml-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold text-gray-700 dark:text-white focus:outline-none"
+            value={talentSort}
+            onChange={e => setTalentSort(e.target.value)}
+            title="Sort by"
+          >
+            <option value="score-desc">Sort: Best Match</option>
+            <option value="score-asc">Sort: Lowest Score</option>
+            <option value="name-asc">Sort: Name (A-Z)</option>
+            <option value="name-desc">Sort: Name (Z-A)</option>
+          </select>
+        </div>
         <button
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md"
           onClick={() => setShowEmailModal(true)}
@@ -3515,6 +3765,18 @@ useEffect(() => {
           <Mail className="h-5 w-5" /> Email Center
         </button>
       </div>
+      {/* Bulk Actions Bar */}
+      {selectedTalentIds.length > 0 && (
+        <div className="flex flex-wrap gap-3 items-center justify-between bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-xl px-6 py-3 mb-4 shadow">
+          <span className="font-bold text-blue-700 dark:text-blue-200">{selectedTalentIds.length} selected</span>
+          <div className="flex gap-2">
+            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold" onClick={handleBulkEmail}><Mail className="h-4 w-4 inline" /> Email</button>
+            <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold" onClick={() => handleBulkStatus('Placed')}>Mark Placed</button>
+            <button className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-semibold" onClick={() => handleBulkStatus('Interviewing')}>Mark Interviewing</button>
+            <button className="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-semibold" onClick={handleBulkExport}><Download className="h-4 w-4 inline" /> Export</button>
+          </div>
+        </div>
+      )}
       {/* Search bar on top */}
       <div className="w-full max-w-xl mx-auto mb-8">
         <div className="relative">
@@ -3530,53 +3792,159 @@ useEffect(() => {
       </div>
       {/* Responsive grid for Talent Pool */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 w-full max-w-7xl mx-auto min-h-[400px]">
+        {/* Select All Checkbox */}
+        {filteredTalent.length > 0 && (
+          <div className="col-span-full flex items-center gap-2 mb-2">
+            <input type="checkbox" checked={isAllSelected} onChange={handleSelectAllTalent} className="h-5 w-5 rounded border-gray-400" />
+            <span className="font-semibold text-gray-700 dark:text-white">Select All</span>
+          </div>
+        )}
         {filteredTalent.length > 0 ? (
-          filteredTalent.map(talent => (
-            <div
-              key={talent.id || talent._id}
-              className="group bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-blue-900/30 rounded-2xl flex flex-col justify-between shadow-xl dark:shadow-2xl transition-all duration-200 min-h-[320px] h-full max-w-full"
-              style={{ minHeight: 320, height: '100%' }}
-            >
-              {/* Profile avatar and info */}
-              <div className="flex items-center gap-5 mb-4 px-8 pt-7">
-                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 border-2 border-blue-300 dark:border-blue-500/50 flex items-center justify-center flex-shrink-0 shadow-lg">
-                  <span className="text-3xl font-black text-white">{(talent.name || 'S').charAt(0)}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-extrabold text-white mb-1 truncate group-hover:text-blue-300 transition-colors">{talent.name || 'Student'}</h3>
-                  <p className="text-slate-400 text-base font-semibold mb-1 truncate">{talent.degree || 'N/A'} - {talent.branch || 'N/A'}</p>
-                  <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
-                    <span className="flex items-center gap-1">
-                      <User className="h-4 w-4" /> {talent.age || 'N/A'} yrs • {talent.gender || 'N/A'}
+          filteredTalent.map(talent => {
+            const id = talent.id || talent._id;
+            return (
+              <div
+                key={id}
+                className="group bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 border border-gray-200 dark:border-blue-900/30 rounded-3xl flex flex-col justify-between shadow-xl dark:shadow-2xl transition-all duration-200 min-h-[360px] h-full max-w-full hover:scale-[1.025] hover:shadow-2xl"
+                style={{ minHeight: 360, height: '100%' }}
+              >
+                {/* Bulk select checkbox */}
+                <div className="flex items-center gap-2 px-8 pt-7">
+                  <input type="checkbox" checked={selectedTalentIds.includes(id)} onChange={() => handleSelectTalent(id)} className="h-5 w-5 rounded border-gray-400" />
+                  {/* Profile avatar and info */}
+                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 border-2 border-blue-300 dark:border-blue-500/50 flex items-center justify-center flex-shrink-0 shadow-lg relative">
+                    <span className="text-3xl font-black text-white drop-shadow-lg">
+                      {(() => {
+                        if (!talent.name) return 'S';
+                        const parts = talent.name.trim().split(' ');
+                        let initials = '';
+                        if (parts.length === 1) {
+                          initials = parts[0].slice(0, 2).toUpperCase();
+                        } else {
+                          initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                        }
+                        // Remove any non-letter characters (like '>')
+                        return initials.replace(/[^A-Z]/gi, '');
+                      })()}
                     </span>
+                    {/* Profile Badges */}
+                    {talent.status === 'Placed' && (
+                      <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">Placed</span>
+                    )}
+                    {talent.score >= 90 && (
+                      <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">Top Performer</span>
+                    )}
                   </div>
-                </div>
-              </div>
-              <div className="border-t border-slate-700 mx-8"></div>
-              {/* Skills and status */}
-              <div className="flex-1 flex flex-col justify-between px-8 pb-4">
-                <div className="mt-4">
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {talent.skills && talent.skills.length > 0 && talent.skills.slice(0, 4).map((skill, i) => (
-                      <span key={i} className="px-2 py-1 bg-blue-900/30 text-blue-200 rounded-lg text-xs font-semibold border border-blue-700">
-                        {skill}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-extrabold text-gray-900 dark:text-white mb-1 truncate group-hover:text-blue-500 dark:group-hover:text-blue-300 transition-colors">{talent.name || 'Student'}</h3>
+                    <p className="text-gray-500 dark:text-slate-400 text-base font-semibold mb-1 truncate">{talent.degree || 'N/A'} - {talent.branch || 'N/A'}</p>
+                    <div className="flex flex-wrap gap-3 text-xs text-gray-400 dark:text-slate-400 font-medium">
+                      <span className="flex items-center gap-1"><User className="h-4 w-4" /> {talent.age || 'N/A'} yrs • {talent.gender || 'N/A'}</span>
+                      <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {talent.email || 'N/A'}</span>
+                      <span className="flex items-center gap-1"><Phone className="h-4 w-4" /> {talent.phone || 'N/A'}</span>
+                      {talent.address && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {talent.address}</span>}
+                      {talent.dob && <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> DOB: {talent.dob}</span>}
+                    </div>
+                    {/* Additional Details Row */}
+                    <div className="flex flex-wrap gap-3 text-xs text-gray-400 dark:text-slate-400 font-medium mt-1">
+                      {talent.location && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> Location: {talent.location}</span>}
+                      {talent.lastContact && <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Last Contact: {talent.lastContact}</span>}
+                      {talent.source && <span className="flex items-center gap-1"><FileText className="h-4 w-4" /> Source: {talent.source}</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs text-gray-400 dark:text-slate-400 font-medium mt-1">
+                      <span className="flex items-center gap-1"><FileText className="h-4 w-4" /> Resume: {talent.resume ? <a href={talent.resume} target="_blank" rel="noopener noreferrer" className="underline text-blue-600 dark:text-blue-300">View</a> : 'N/A'}</span>
+                      <span className="flex items-center gap-1"><Award className="h-4 w-4" /> CGPA: {talent.cgpa || 'N/A'}</span>
+                      {talent.tenthMarks && <span className="flex items-center gap-1"><Star className="h-4 w-4" /> 10th: {talent.tenthMarks}</span>}
+                      {talent.twelfthMarks && <span className="flex items-center gap-1"><Star className="h-4 w-4" /> 12th: {talent.twelfthMarks}</span>}
+                      {talent.experience && <span className="flex items-center gap-1"><Briefcase className="h-4 w-4" /> Exp: {talent.experience} yrs</span>}
+                    </div>
+                    {/* Profile Completeness Meter */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">Profile:</span>
+                      <span className="inline-block w-24 h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <span
+                          className="block h-2 rounded-full bg-indigo-500 transition-all"
+                          style={{ width: `${Math.round((['name','email','phone','degree','branch','cgpa'].reduce((acc, field) => talent[field] ? acc + 1 : acc, 0) / 6) * 100)}%` }}
+                        />
                       </span>
-                    ))}
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300">{Math.round((['name','email','phone','degree','branch','cgpa'].reduce((acc, field) => talent[field] ? acc + 1 : acc, 0) / 6) * 100)}%</span>
+                    </div>
                   </div>
-                  <span className="inline-block text-xs text-slate-400 font-medium">Status: <span className="font-bold text-blue-400">{talent.status}</span></span>
                 </div>
-                {/* View Details Button */}
-                <div className="mt-6 flex justify-end">
-                  <button
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md transition-all"
-                    onClick={() => setSelectedStudentForAnalysis(talent)}
-                  >
-                    View Details
-                  </button>
+                <div className="border-t border-gray-200 dark:border-slate-700 mx-8"></div>
+                {/* Skills and status */}
+                <div className="flex-1 flex flex-col justify-between px-8 pb-4">
+                  <div className="mt-4">
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {talent.skills && talent.skills.length > 0 && talent.skills.slice(0, 6).map((skill, i) => (
+                        <span key={i} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 rounded-lg text-xs font-semibold border border-blue-200 dark:border-blue-700">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="inline-block text-xs font-medium text-gray-500 dark:text-slate-400">Status:</span>
+                      <span className={`font-bold text-xs px-2 py-1 rounded-lg ${talent.status === 'Placed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : talent.status === 'Interviewing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-gray-100 text-gray-700 dark:bg-slate-800/50 dark:text-slate-300'}`}>{talent.status}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="inline-block text-xs font-medium text-gray-500 dark:text-slate-400">Score:</span>
+                      <span className="font-bold text-xs px-2 py-1 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">{talent.score}</span>
+                    </div>
+                  </div>
+                  {/* Schedule Interview, View Details, Parse Resume Buttons */}
+                  <div className="mt-6 flex flex-wrap justify-end gap-2">
+                    <button
+                      className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-xl font-bold shadow-md transition-all"
+                      onClick={() => {
+                        // Find application for this talent
+                        const application = applications.find(app => {
+                          const studentId = app.student?._id || app.student?.id || app.studentId;
+                          return studentId === (talent.id || talent._id);
+                        });
+                        if (!application) {
+                          alert('Cannot schedule interview: This candidate has not applied to any job.');
+                          return;
+                        }
+                        const applicationEmail = application.student?.user?.email || application.student?.email || '';
+                        const applicationName = application.student?.user?.name || application.student?.name || '';
+                        const applicationPosition = application.job?.position || application.job?.title || '';
+                        setNewInterview({
+                          applicationId: application?._id || application?.id || '',
+                          candidateEmail: applicationEmail,
+                          candidateName: applicationName,
+                          position: applicationPosition,
+                          round: 'technical',
+                          date: '',
+                          startTime: '',
+                          endTime: '',
+                          interviewer: user?.name || '',
+                          location: '',
+                          type: 'Virtual',
+                        });
+                        setCandidateEmail(applicationEmail);
+                        setSelectedCandidate(application);
+                        setShowScheduleInterviewModal(true);
+                      }}
+                    >
+                      Schedule Interview
+                    </button>
+                    <button
+                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold shadow-md transition-all"
+                      onClick={() => setSelectedStudentForAnalysis(talent)}
+                    >
+                      View Details
+                    </button>
+                    <button
+                      className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl font-bold shadow-md transition-all"
+                      onClick={() => handleParseResume(talent)}
+                    >
+                      Parse Resume
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         ) : null}
         {filteredTalent.length === 0 && (
           <div className="col-span-full text-center py-24 bg-white dark:bg-slate-800/50 rounded-2xl border-2 border-gray-200 dark:border-white/10">
@@ -3602,9 +3970,15 @@ useEffect(() => {
 
   // 4. Enhanced Interviews
   const [showScheduleInterviewModal, setShowScheduleInterviewModal] = useState(false);
+  const [candidateEmail, setCandidateEmail] = useState('');
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [emailSearchResults, setEmailSearchResults] = useState([]);
   const [newInterview, setNewInterview] = useState({
+    candidateEmail: '',
     candidateName: '',
     position: '',
+    applicationId: '',
+    round: 'technical',
     date: '',
     startTime: '',
     endTime: '',
@@ -3612,6 +3986,85 @@ useEffect(() => {
     location: '',
     type: 'Virtual',
   });
+  const [suggestedInterviewSlots, setSuggestedInterviewSlots] = useState([]);
+  const [interviewConflicts, setInterviewConflicts] = useState([]);
+
+  // Search candidate by email
+  const handleSearchCandidateByEmail = async (email) => {
+    setCandidateEmail(email);
+    setNewInterview(prev => ({
+      ...prev,
+      candidateEmail: email,
+      candidateName: '',
+      position: ''
+    }));
+    if (!email.trim()) {
+      setEmailSearchResults([]);
+      return;
+    }
+    try {
+      // Search in detailedApplications or directly in users
+      const results = applications?.filter(app => 
+        app.student?.user?.email?.toLowerCase().includes(email.toLowerCase()) ||
+        app.student?.email?.toLowerCase().includes(email.toLowerCase())
+      ) || [];
+      setEmailSearchResults(results);
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const exactMatch = results.find((app) => {
+        const appEmail = String(app.student?.user?.email || app.student?.email || app.candidateEmail || app.email || app.studentEmail || '').trim().toLowerCase();
+        return appEmail === normalizedEmail;
+      });
+      if (exactMatch) {
+        handleSelectCandidate(exactMatch);
+        return;
+      }
+      if (results.length === 1) {
+        handleSelectCandidate(results[0]);
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+      setEmailSearchResults([]);
+    }
+  };
+
+  // Select candidate from search results
+  const handleSelectCandidate = (app) => {
+    const studentEmail = app.student?.user?.email || app.student?.email || '';
+    const studentName = app.student?.user?.name || app.student?.name || 'Student';
+    const position = app.job?.position || app.job?.title || 'Position';
+    
+    setSelectedCandidate(app);
+    setNewInterview(prev => ({
+      ...prev,
+      candidateEmail: studentEmail,
+      candidateName: studentName,
+      position: position,
+      applicationId: app._id
+    }));
+    setCandidateEmail(studentEmail);
+    setEmailSearchResults([]);
+  };
+    // Smart slot suggestion logic (simple demo: next 5 days, 10/11/14/15)
+    const handleSuggestSlots = () => {
+      const busy = interviews.map(iv => `${iv.date}-${iv.startTime}`);
+      const suggestions = [];
+      const conflicts = [];
+      const today = new Date();
+      for (let dayOffset = 1; dayOffset <= 5; dayOffset += 1) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + dayOffset);
+        const yyyyMmDd = date.toISOString().split('T')[0];
+        ['10:00', '11:00', '14:00', '15:00'].forEach((slot) => {
+          if (!busy.some((entry) => entry.startsWith(`${yyyyMmDd}-${slot}`))) {
+            suggestions.push({ date: yyyyMmDd, startTime: slot, endTime: (parseInt(slot) + 1) + ':00', interviewer: 'Auto Assigned' });
+          } else {
+            conflicts.push({ date: yyyyMmDd, startTime: slot, reason: 'Existing interview conflict' });
+          }
+        });
+      }
+      setSuggestedInterviewSlots(suggestions.slice(0, 8));
+      setInterviewConflicts(conflicts.slice(0, 8));
+    };
   const [joiningInterview, setJoiningInterview] = useState(null);
 
   const renderInterviews = () => (
@@ -3632,82 +4085,140 @@ useEffect(() => {
       {/* Schedule Interview Modal */}
       {showScheduleInterviewModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-slate-900 w-full max-w-xl rounded-2xl p-6 border border-white/10 shadow-2xl">
+          <div className={`${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'} w-full max-w-xl rounded-2xl p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-white">Schedule Interview</h3>
+              <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Schedule Interview</h3>
               <button
-                onClick={() => setShowScheduleInterviewModal(false)}
+                onClick={() => {
+                  setShowScheduleInterviewModal(false);
+                  setSelectedCandidate(null);
+                  setCandidateEmail('');
+                  setEmailSearchResults([]);
+                }}
                 className="p-2 rounded-xl hover:bg-white/10 text-slate-300"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-yellow-300 drop-shadow-lg mb-1">Candidate Name *</label>
-                <input
-                  value={newInterview.candidateName}
-                  onChange={e => setNewInterview(prev => ({ ...prev, candidateName: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-yellow-300/40 text-yellow-100 placeholder-yellow-300 font-extrabold drop-shadow-lg"
-                  placeholder="Enter candidate name"
-                />
+              <div className="md:col-span-2">
+                <label className={`block text-sm font-bold mb-1 ${isDark ? 'text-yellow-300 drop-shadow-lg' : 'text-gray-700'}`}>Candidate Email *</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={candidateEmail}
+                    onChange={e => handleSearchCandidateByEmail(e.target.value)}
+                    placeholder="Enter candidate email"
+                    className={`w-full p-3 rounded-xl font-bold drop-shadow-lg ${isDark ? 'bg-slate-800 border border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border border-gray-300 text-gray-900 placeholder-gray-500'}`}
+                    required
+                  />
+                  {/* Email search dropdown */}
+                  {emailSearchResults.length > 0 && (
+                    <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto ${isDark ? 'bg-slate-800 border border-yellow-300/40' : 'bg-white border border-gray-200'}`}>
+                      {emailSearchResults.map(app => (
+                        <button
+                          key={app._id}
+                          onClick={() => handleSelectCandidate(app)}
+                          className={`w-full text-left px-3 py-2 hover:bg-blue-600/50 border-b last:border-b-0 text-sm font-semibold ${isDark ? 'border-slate-700 text-yellow-200' : 'border-gray-100 text-gray-900'}`}
+                          type="button"
+                        >
+                          <div className={`${isDark ? '' : 'text-gray-900'}`}>{app.student?.user?.name || app.student?.name}</div>
+                          <div className={`${isDark ? 'text-yellow-300/70 text-xs' : 'text-gray-500 text-xs'}`}>{app.student?.user?.email || app.student?.email} - {app.job?.position || 'Role'}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedCandidate && (
+                  <div className={`mt-2 p-2 rounded-lg text-sm font-semibold ${isDark ? 'bg-blue-900/30 border border-blue-500/50 text-yellow-200' : 'bg-gray-100 border border-gray-200 text-gray-900'}`}>
+                    ✓ Selected: {newInterview.candidateName} ({newInterview.candidateEmail})
+                  </div>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-bold text-yellow-300 drop-shadow-lg mb-1">Position *</label>
-                <input
-                  value={newInterview.position}
-                  onChange={e => setNewInterview(prev => ({ ...prev, position: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-yellow-300/40 text-yellow-200 placeholder-yellow-400 font-bold drop-shadow-lg"
-                  placeholder="Enter position"
-                />
+                <label className={`block text-sm font-bold mb-1 ${isDark ? 'text-yellow-300 drop-shadow-lg' : 'text-gray-700'}`}>Round *</label>
+                <select
+                  value={newInterview.round}
+                  onChange={e => setNewInterview(prev => ({ ...prev, round: e.target.value }))}
+                  className={`w-full p-3 rounded-xl font-bold drop-shadow-lg ${isDark ? 'bg-slate-800 border border-yellow-300/40 text-yellow-200' : 'bg-white border border-gray-300 text-gray-900'}`}
+                >
+                  <option value="technical">Technical</option>
+                  <option value="hr">HR</option>
+                  <option value="final">Final</option>
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-yellow-300 drop-shadow-lg mb-1">Date *</label>
+                <label className={`block text-sm font-bold mb-1 ${isDark ? 'text-yellow-300 drop-shadow-lg' : 'text-gray-700'}`}>Date *</label>
                 <input
                   type="date"
                   value={newInterview.date}
                   onChange={e => setNewInterview(prev => ({ ...prev, date: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-yellow-300/40 text-yellow-200 font-bold drop-shadow-lg"
+                  className={`w-full p-3 rounded-xl font-bold drop-shadow-lg ${isDark ? 'bg-slate-800 border border-yellow-300/40 text-yellow-200' : 'bg-white border border-gray-300 text-gray-900'}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-yellow-300 drop-shadow-lg mb-1">Start Time *</label>
+                <label className={`block text-sm font-bold mb-1 ${isDark ? 'text-yellow-300 drop-shadow-lg' : 'text-gray-700'}`}>Start Time *</label>
                 <input
                   type="time"
                   value={newInterview.startTime}
                   onChange={e => setNewInterview(prev => ({ ...prev, startTime: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-yellow-300/40 text-yellow-200 font-bold drop-shadow-lg"
+                  className={`w-full p-3 rounded-xl font-bold drop-shadow-lg ${isDark ? 'bg-slate-800 border border-yellow-300/40 text-yellow-200' : 'bg-white border border-gray-300 text-gray-900'}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-yellow-300 drop-shadow-lg mb-1">End Time *</label>
+                <label className={`block text-sm font-bold mb-1 ${isDark ? 'text-yellow-300 drop-shadow-lg' : 'text-gray-700'}`}>End Time *</label>
                 <input
                   type="time"
                   value={newInterview.endTime}
                   onChange={e => setNewInterview(prev => ({ ...prev, endTime: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-yellow-300/40 text-yellow-200 font-bold drop-shadow-lg"
+                  className={`w-full p-3 rounded-xl font-bold drop-shadow-lg ${isDark ? 'bg-slate-800 border border-yellow-300/40 text-yellow-200' : 'bg-white border border-gray-300 text-gray-900'}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-yellow-300 drop-shadow-lg mb-1">Location</label>
+                <label className={`block text-sm font-bold mb-1 ${isDark ? 'text-yellow-300 drop-shadow-lg' : 'text-gray-700'}`}>Location</label>
                 <input
                   value={newInterview.location}
                   onChange={e => setNewInterview(prev => ({ ...prev, location: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-yellow-300/40 text-yellow-200 placeholder-yellow-400 font-bold drop-shadow-lg"
+                  className={`w-full p-3 rounded-xl font-bold drop-shadow-lg ${isDark ? 'bg-slate-800 border border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border border-gray-300 text-gray-900 placeholder-gray-500'}`}
                   placeholder="Enter location"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-yellow-300 drop-shadow-lg mb-1">Type</label>
+                <label className={`block text-sm font-bold mb-1 ${isDark ? 'text-yellow-300 drop-shadow-lg' : 'text-gray-700'}`}>Type</label>
                 <select
                   value={newInterview.type}
                   onChange={e => setNewInterview(prev => ({ ...prev, type: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-yellow-300/40 text-yellow-200 font-bold drop-shadow-lg"
+                  className={`w-full p-3 rounded-xl font-bold drop-shadow-lg ${isDark ? 'bg-slate-800 border border-yellow-300/40 text-yellow-200' : 'bg-white border border-gray-300 text-gray-900'}`}
                 >
                   <option value="Virtual">Virtual</option>
                   <option value="In-person">In-person</option>
                 </select>
               </div>
+            </div>
+            {/* Smart Slot Suggestions */}
+            <div className="mt-4">
+              <button
+                onClick={handleSuggestSlots}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-bold shadow-md hover:from-purple-700 hover:to-blue-700 transition-all mb-2"
+              >
+                Suggest Interview Slots
+              </button>
+              {suggestedInterviewSlots.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs font-semibold mb-1 text-yellow-200">Suggested Slots (click to fill):</p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedInterviewSlots.map((slot, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setNewInterview(prev => ({ ...prev, date: slot.date, startTime: slot.startTime, endTime: slot.endTime }))}
+                        className="px-3 py-1 bg-blue-900/30 text-blue-200 rounded-lg text-xs font-semibold border border-blue-700 hover:bg-blue-700 hover:text-white"
+                      >
+                        {slot.date} {slot.startTime} - {slot.endTime}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex gap-3 justify-end mt-6">
               <button
@@ -3717,21 +4228,45 @@ useEffect(() => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // Add to interviews (mock, replace with API in real app)
-                  setInterviews(prev => [
-                    ...prev,
-                    {
-                      ...newInterview,
-                      id: `INT${prev.length + 1}`,
-                      status: 'Scheduled',
-                      roomId: `room-${Math.floor(Math.random()*10000)}`,
+                onClick={async () => {
+                  try {
+                    const normalizedEmail = String(candidateEmail || newInterview.candidateEmail || '').trim().toLowerCase();
+                    const exactEmailMatch = applications?.find(app => {
+                      const applicationEmail = String(app.student?.user?.email || app.student?.email || app.candidateEmail || app.email || app.studentEmail || '').trim().toLowerCase();
+                      return applicationEmail && applicationEmail === normalizedEmail;
+                    });
+                    const resolvedApplication = exactEmailMatch || selectedCandidate || (newInterview.applicationId
+                      ? applications?.find(app => String(app._id) === String(newInterview.applicationId))
+                      : null);
+
+                    if (!resolvedApplication || !newInterview.round || !newInterview.date || !newInterview.startTime) {
+                      alert('Please fill all required fields (Candidate Email, Round, Date, Start Time) and select a matching application.');
+                      return;
                     }
-                  ]);
-                  setShowScheduleInterviewModal(false);
-                  setNewInterview({
-                    candidateName: '', position: '', date: '', startTime: '', endTime: '', interviewer: user?.name || '', location: '', type: 'Virtual',
-                  });
+                    const scheduledDate = new Date(`${newInterview.date}T${newInterview.startTime}`);
+                    const payload = {
+                      applicationId: resolvedApplication._id,
+                      round: newInterview.round,
+                      scheduledDate,
+                      date: newInterview.date,
+                      startTime: newInterview.startTime,
+                      endTime: newInterview.endTime,
+                      location: newInterview.location,
+                      type: newInterview.type,
+                      interviewer: newInterview.interviewer || user?.name,
+                    };
+                    const { data } = await interviewAPI.schedule(payload);
+                    setInterviews(prev => [...prev, data.interview || data]);
+                    setShowScheduleInterviewModal(false);
+                    setNewInterview({ candidateEmail: '', candidateName: '', applicationId: '', round: 'technical', date: '', startTime: '', endTime: '', interviewer: user?.name || '', location: '', type: 'Virtual' });
+                    setSelectedCandidate(null);
+                    setCandidateEmail('');
+                    setEmailSearchResults([]);
+                    setSuggestedInterviewSlots([]);
+                    alert('Interview scheduled successfully!');
+                  } catch (err) {
+                    alert('Failed to schedule interview: ' + (err?.response?.data?.message || err.message));
+                  }
                 }}
                 className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold"
               >
@@ -3746,29 +4281,38 @@ useEffect(() => {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 text-xs uppercase font-black text-yellow-300 tracking-wider drop-shadow-lg">
-              <th className="px-6 py-5 text-left text-yellow-300 drop-shadow-lg">Candidate</th>
-              <th className="px-6 py-5 text-left text-yellow-300 drop-shadow-lg">Position</th>
-              <th className="px-6 py-5 text-left text-yellow-300 drop-shadow-lg">Date</th>
-              <th className="px-6 py-5 text-left text-yellow-300 drop-shadow-lg">Time</th>
-              <th className="px-6 py-5 text-left text-yellow-300 drop-shadow-lg">Type</th>
-              <th className="px-6 py-5 text-left text-yellow-300 drop-shadow-lg">Status</th>
-              <th className="px-6 py-5 text-left text-yellow-300 drop-shadow-lg">Actions</th>
+            <tr className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-900 dark:via-purple-900 dark:to-pink-900 text-xs uppercase font-black text-white dark:text-yellow-300 tracking-wider drop-shadow-lg">
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Candidate</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Position</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Date</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Time</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Type</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Status</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {interviews.map((interview) => (
-              <tr key={interview.id} className="border-b border-white/10 hover:bg-white/5 transition-all">
-                <td className="px-6 py-5 font-bold text-white">{interview.candidateName}</td>
-                <td className="px-6 py-5">{interview.position}</td>
-                <td className="px-6 py-5">{interview.date}</td>
-                <td className="px-6 py-5">{interview.startTime} - {interview.endTime}</td>
-                <td className="px-6 py-5">{interview.type}</td>
+            {interviews.map((interview) => {
+              const candidateName = interview.student?.user?.name || interview.student?.name || interview.candidateName || 'N/A';
+              const position = interview.job?.title || interview.job?.position || interview.position || 'N/A';
+              const date = interview.date || interview.scheduledDate?.split('T')[0] || 'N/A';
+              const startTime = interview.startTime || 'N/A';
+              const endTime = interview.endTime || 'N/A';
+              const type = interview.type || 'N/A';
+              const status = interview.status || 'Scheduled';
+              
+              return (
+              <tr key={interview._id || interview.id} className="border-b border-gray-200 dark:border-white/10 hover:bg-blue-50 dark:hover:bg-white/5 transition-all">
+                <td className="px-6 py-5 font-bold text-gray-900 dark:text-white">{candidateName}</td>
+                <td className="px-6 py-5 text-gray-700 dark:text-gray-200">{position}</td>
+                <td className="px-6 py-5 text-gray-700 dark:text-gray-200">{date}</td>
+                <td className="px-6 py-5 text-gray-700 dark:text-gray-200">{startTime} - {endTime}</td>
+                <td className="px-6 py-5 text-gray-700 dark:text-gray-200">{type}</td>
                 <td className="px-6 py-5">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${interview.status === 'Completed' ? 'bg-emerald-600/80 text-white' : 'bg-blue-600/80 text-white'}`}>{interview.status}</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${status === 'Completed' ? 'bg-emerald-600/80 text-white' : 'bg-blue-600/80 text-white'}`}>{status}</span>
                 </td>
                 <td className="px-6 py-5">
-                  {interview.status === 'Scheduled' && interview.type === 'Virtual' && (
+                  {status === 'Scheduled' && type === 'Virtual' && (
                     <button
                       onClick={() => setJoiningInterview(interview)}
                       className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold hover:shadow-lg transition-all"
@@ -3776,10 +4320,11 @@ useEffect(() => {
                       <Video className="w-4 h-4 inline mr-1" /> Join
                     </button>
                   )}
-                  {interview.status === 'Completed' && <span className="text-slate-400">Completed</span>}
+                  {status === 'Completed' && <span className="text-gray-500 dark:text-slate-400">Completed</span>}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -3787,11 +4332,11 @@ useEffect(() => {
       {/* Camera Join Modal */}
       {joiningInterview && (
         <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
-          <div className="w-full max-w-6xl max-h-[95vh] overflow-hidden rounded-3xl border border-indigo-500/30 bg-slate-950 shadow-2xl">
-            <div className="flex w-full items-start justify-between border-b border-slate-800 px-4 py-4 sm:px-6">
+          <div className="w-full max-w-6xl h-[95vh] max-h-[95vh] flex flex-col overflow-hidden rounded-3xl border border-indigo-500/30 bg-slate-950 shadow-2xl">
+            <div className="flex w-full items-start justify-between border-b border-slate-800 px-4 py-4 sm:px-6 shrink-0">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-blue-300">
-                <Video className="w-6 h-6" /> Interview Room
+                  <Video className="w-6 h-6" /> Interview Room
                 </h2>
                 <p className="mt-1 text-sm text-slate-300">
                   {joiningInterview.candidateName} • {joiningInterview.position}
@@ -3801,7 +4346,7 @@ useEffect(() => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="w-full overflow-y-auto px-3 py-3 sm:px-5 sm:py-5">
+            <div className="w-full flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-5 sm:py-5 pb-12">
               <div className="w-full">
                 <VideoConference
                   roomId={joiningInterview.roomId || `interview-room-${joiningInterview.id}`}
@@ -3846,104 +4391,134 @@ useEffect(() => {
 
       {showOfferModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-slate-900 w-full max-w-3xl rounded-2xl p-6 border border-white/10 shadow-2xl">
+          <div className="bg-white w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-6 border border-gray-200 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-black text-blue-700 dark:text-white drop-shadow-lg">Create New Offer</h3>
+              <h3 className="text-2xl font-black text-blue-700 dark:text-white">Create New Offer</h3>
               <button
                 onClick={() => setShowOfferModal(false)}
-                className="p-2 rounded-xl hover:bg-white/10 text-gray-900 "
+                className="p-2 rounded-xl hover:bg-gray-100 text-gray-900 dark:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {offerError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
+              <div className="mb-4 p-3 rounded-xl bg-red-100 border border-red-200 text-red-700 text-sm">
                 {offerError}
               </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Candidate *</label>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-gray-800 dark:text-blue-300 mb-2">Select Student - Registered Email *</label>
                 <select
-                  value={offerForm.studentUserId}
-                  onChange={(e) => {
-                    const selectedId = e.target.value;
-                    const selectedStudent = students.find((student) => String(student._id || student.id) === selectedId);
-                    const selectedEmail = selectedStudent?.email || selectedStudent?.user?.email || '';
-                    setOfferForm((prev) => ({ ...prev, studentUserId: selectedId, candidateEmail: selectedEmail }));
-                  }}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg"
-                >
-                  <option value="">Select candidate</option>
-                  {students.map((student) => (
-                    <option
-                      key={student._id || student.id}
-                      value={student._id || student.id}
-                    >
-                      {student.name} {student.rollNumber ? `(Roll: ${student.rollNumber})` : ''}{(student.email || student.user?.email) ? ` • ${student.email || student.user?.email}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Candidate Email (optional)</label>
-                <input
-                  type="email"
-                  list="candidate-emails"
                   value={offerForm.candidateEmail}
                   onChange={(e) => {
-                    const emailValue = e.target.value;
-                    const match = students.find((student) => String(student.email || student.user?.email || '').toLowerCase() === emailValue.toLowerCase());
                     setOfferForm((prev) => ({
                       ...prev,
-                      candidateEmail: emailValue,
-                      studentUserId: match ? String(match._id || match.id || '') : prev.studentUserId
+                      candidateEmail: e.target.value,
+                      studentUserId: '',
                     }));
                   }}
-                  placeholder="candidate@email.com"
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-white placeholder-white font-extrabold drop-shadow-xl"
-                />
-                <datalist id="candidate-emails">
-                  {students
-                    .map((student) => student.email || student.user?.email)
-                    .filter(Boolean)
-                    .map((email) => (
-                      <option key={email} value={email} />
-                    ))}
-                </datalist>
+                  className="w-full p-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none font-bold mb-2"
+                >
+                  <option value="">-- Select an Applicant Email --</option>
+                  {offerCandidates.length > 0 ? (
+                    offerCandidates.map((candidate) => (
+                      <option
+                        key={candidate.key}
+                        value={candidate.email}
+                      >
+                        {candidate.email} {candidate.name ? `• ${candidate.name}` : ''} {candidate.applications?.length ? `• ${candidate.applications.length} application${candidate.applications.length > 1 ? 's' : ''}` : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>No applicant emails found</option>
+                  )}
+                </select>
+                <p className="mt-1 text-xs font-semibold text-gray-500">
+                  ✓ Only students who have applied for a job are listed. The offer will be sent to their registered email address.
+                </p>
+                {(() => {
+                   const matchedCandidate = offerCandidates.find((candidate) => String(candidate.email || '').toLowerCase() === String(offerForm.candidateEmail || '').toLowerCase());
+                   if (matchedCandidate) {
+                      return (
+                         <div className="mt-3 space-y-3">
+                            <div className="rounded-2xl border-2 border-green-400 bg-green-50 p-4 shadow-md">
+                              <div className="flex items-center gap-2">
+                                <div className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-xs">✓</div>
+                                <span className="text-xs font-bold text-green-800 uppercase tracking-wide">Student's Registered Email</span>
+                              </div>
+                              <div className="mt-2 text-lg font-black text-green-900 break-all">{matchedCandidate.email}</div>
+                              <p className="mt-1 text-xs text-green-700 font-semibold">Offer will be sent to this email address</p>
+                            </div>
+                            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-gray-900 shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-black text-blue-900">{matchedCandidate.name}</div>
+                                <div className="text-xs text-blue-800/80">{matchedCandidate.rollNumber ? `Roll: ${matchedCandidate.rollNumber}` : 'No roll number'}</div>
+                              </div>
+                              <span className="rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+                                {matchedCandidate.applications?.length || 0} Applied
+                              </span>
+                            </div>
+                            {matchedCandidate.applications?.length > 0 && (
+                              <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-gray-700 border border-blue-100">
+                                Latest applications: {matchedCandidate.applications.slice(0, 3).map((application) => `${application.jobTitle}${application.companyName ? ` at ${application.companyName}` : ''}`).join(', ')}
+                              </div>
+                            )}
+                            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-gray-700">
+                              <div className="rounded-lg bg-white px-2 py-2 border border-blue-100">Branch: {matchedCandidate.branch || 'N/A'}</div>
+                              <div className="rounded-lg bg-white px-2 py-2 border border-blue-100">CGPA: {matchedCandidate.cgpa || 'N/A'}</div>
+                              <div className="rounded-lg bg-white px-2 py-2 border border-blue-100">Phone: {matchedCandidate.phone || 'N/A'}</div>
+                              <div className="rounded-lg bg-white px-2 py-2 border border-blue-100">Status: {matchedCandidate.placementStatus || 'N/A'}</div>
+                            </div>
+                            {matchedCandidate.skills.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {matchedCandidate.skills.slice(0, 6).map((skill) => (
+                                  <span key={skill} className="rounded-full bg-blue-100 px-2 py-1 text-[11px] font-semibold text-blue-900">
+                                    {skill}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                         </div>
+                         </div>
+                      );
+                   }
+                   return null;
+                })()}
               </div>
               <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Company *</label>
+                <label className="block text-sm font-bold text-blue-400 dark:text-blue-300 drop-shadow-md mb-1">Company *</label>
                 <input
                   value={offerForm.companyName}
                   onChange={(e) => setOfferForm((prev) => ({ ...prev, companyName: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 placeholder-blue-400 dark:placeholder-yellow-400 font-bold drop-shadow-lg"
+                  className="w-full p-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none placeholder-gray-500 font-bold"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Role Title *</label>
+                <label className="block text-sm font-bold text-blue-400 dark:text-blue-300 drop-shadow-md mb-1">Role Title *</label>
                 <input
                   value={offerForm.roleTitle}
                   onChange={(e) => setOfferForm((prev) => ({ ...prev, roleTitle: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 placeholder-blue-400 dark:placeholder-yellow-400 font-bold drop-shadow-lg"
+                  className="w-full p-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none placeholder-gray-500 font-bold"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">CTC</label>
+                <label className="block text-sm font-bold text-blue-400 dark:text-blue-300 drop-shadow-md mb-1">CTC</label>
                 <input
                   value={offerForm.ctc}
                   onChange={(e) => setOfferForm((prev) => ({ ...prev, ctc: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 placeholder-blue-400 dark:placeholder-yellow-400 font-bold drop-shadow-lg"
+                  className="w-full p-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none placeholder-gray-500 font-bold"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Offer Type</label>
+                <label className="block text-sm font-bold text-blue-400 dark:text-blue-300 drop-shadow-md mb-1">Offer Type</label>
                 <select
                   value={offerForm.offerType}
                   onChange={(e) => setOfferForm((prev) => ({ ...prev, offerType: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg"
+                  className="w-full p-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none font-bold"
                 >
                   <option value="full-time">Full-time</option>
                   <option value="internship">Internship</option>
@@ -3952,11 +4527,11 @@ useEffect(() => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Status</label>
+                <label className="block text-sm font-bold text-blue-400 dark:text-blue-300 drop-shadow-md mb-1">Status</label>
                 <select
                   value={offerForm.status}
                   onChange={(e) => setOfferForm((prev) => ({ ...prev, status: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg"
+                  className="w-full p-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none font-bold"
                 >
                   <option value="offered">Offered</option>
                   <option value="accepted">Accepted</option>
@@ -3965,21 +4540,21 @@ useEffect(() => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Result Date</label>
+                <label className="block text-sm font-bold text-blue-400 dark:text-blue-300 drop-shadow-md mb-1">Result Date</label>
                 <input
                   type="date"
                   value={offerForm.resultDate}
                   onChange={(e) => setOfferForm((prev) => ({ ...prev, resultDate: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg"
+                  className="w-full p-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none font-bold"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Joining Date</label>
+                <label className="block text-sm font-bold text-blue-400 dark:text-blue-300 drop-shadow-md mb-1">Joining Date</label>
                 <input
                   type="date"
                   value={offerForm.joiningDate}
                   onChange={(e) => setOfferForm((prev) => ({ ...prev, joiningDate: e.target.value }))}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-blue-700/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg"
+                  className="w-full p-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none font-bold"
                 />
               </div>
             </div>
@@ -4006,24 +4581,24 @@ useEffect(() => {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 text-xs uppercase font-black text-blue-700 dark:text-yellow-300 tracking-wider drop-shadow-lg">
-              <th className="px-8 py-5 text-left text-blue-700 dark:text-yellow-300 drop-shadow-lg">Candidate</th>
-              <th className="px-6 py-5 text-left text-blue-700 dark:text-yellow-300 drop-shadow-lg">Role</th>
-              <th className="px-6 py-5 text-left text-blue-700 dark:text-yellow-300 drop-shadow-lg">Compensation</th>
-              <th className="px-6 py-5 text-left text-blue-700 dark:text-yellow-300 drop-shadow-lg">Status</th>
-              <th className="px-6 py-5 text-left text-blue-700 dark:text-yellow-300 drop-shadow-lg">Approver</th>
-              <th className="px-6 py-5 text-left text-blue-700 dark:text-yellow-300 drop-shadow-lg">Expires</th>
-              <th className="px-6 py-5 text-right text-blue-700 dark:text-yellow-300 drop-shadow-lg">Progress</th>
-              <th className="px-6 py-5 text-right text-blue-700 dark:text-yellow-300 drop-shadow-lg">Actions</th>
+            <tr className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-900 dark:via-purple-900 dark:to-pink-900 text-xs uppercase font-black text-white dark:text-yellow-300 tracking-wider drop-shadow-lg">
+              <th className="px-8 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Candidate</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Role</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Compensation</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Status</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Approver</th>
+              <th className="px-6 py-5 text-left text-white dark:text-yellow-300 drop-shadow-lg">Expires</th>
+              <th className="px-6 py-5 text-right text-white dark:text-yellow-300 drop-shadow-lg">Progress</th>
+              <th className="px-6 py-5 text-right text-white dark:text-yellow-300 drop-shadow-lg">Actions</th>
             </tr>
           </thead>
           <tbody>
             {offersSource.map((offer) => (
-              <tr key={offer.id} className="border-b border-white/10 hover:bg-white/5 transition-all">
-                <td className="px-8 py-5 font-bold text-blue-900 dark:text-white drop-shadow-lg">{offer.candidateName}</td>
-                <td className="px-6 py-5 text-blue-900 dark:text-white drop-shadow-lg">{offer.position}</td>
-                <td className="px-6 py-5 text-blue-900 dark:text-white drop-shadow-lg">{offer.salary} <span className="block text-xs text-blue-700 dark:text-slate-400">{offer.bonus}</span></td>
-                <td className="px-6 py-5 font-semibold text-blue-900 dark:text-white drop-shadow-lg">
+              <tr key={offer.id} className="border-b border-gray-200 dark:border-white/10 hover:bg-blue-50 dark:hover:bg-white/5 transition-all">
+                <td className="px-8 py-5 font-bold text-gray-900 dark:text-white drop-shadow-lg">{offer.candidateName}</td>
+                <td className="px-6 py-5 text-gray-700 dark:text-white drop-shadow-lg">{offer.position}</td>
+                <td className="px-6 py-5 text-gray-700 dark:text-white drop-shadow-lg">{offer.salary} <span className="block text-xs text-gray-600 dark:text-slate-400">{offer.bonus}</span></td>
+                <td className="px-6 py-5 font-semibold text-gray-900 dark:text-white drop-shadow-lg">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 inline-block ${
                     offer.status === 'Accepted' ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-500/50' :
                     offer.status === 'Rejected' ? 'text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-500/50' :
@@ -4033,10 +4608,10 @@ useEffect(() => {
                     {offer.status}
                   </span>
                 </td>
-                <td className="px-6 py-5 text-blue-900 dark:text-white drop-shadow-lg">{offer.approver}</td>
-                <td className="px-6 py-5 text-blue-900 dark:text-white drop-shadow-lg">{offer.expiryDays > 0 ? `${offer.expiryDays} days` : 'Expired'}</td>
-                <td className="px-6 py-5 text-right text-blue-900 dark:text-white drop-shadow-lg">
-                  <div className="w-24 h-3 bg-white/10 rounded-full overflow-hidden">
+                <td className="px-6 py-5 text-gray-700 dark:text-white drop-shadow-lg">{offer.approver}</td>
+                <td className="px-6 py-5 text-gray-700 dark:text-white drop-shadow-lg">{offer.expiryDays > 0 ? `${offer.expiryDays} days` : 'Expired'}</td>
+                <td className="px-6 py-5 text-right text-gray-700 dark:text-white drop-shadow-lg">
+                  <div className="w-24 h-3 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${offer.progress}%` }} />
                   </div>
                 </td>
@@ -4710,7 +5285,7 @@ Generated by HR Dashboard - Placement Management System`;
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 lg:pt-0 lg:border-l lg:border-slate-200 lg:pl-8 lg:w-80">
+                <div className="flex flex-row flex-wrap items-center justify-center gap-2 p-3 w-full min-w-0 bg-gradient-to-r from-slate-100 to-slate-200 border border-slate-300 rounded-xl shadow-inner mt-4">
                   <button 
                     onClick={() => openEditJobRequisitionModal(req)}
                     className="flex-1 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2"
@@ -4977,9 +5552,9 @@ Generated by HR Dashboard - Placement Management System`;
 
       {(showOnboardingModal || showEditOnboardingModal) && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-slate-900 w-full max-w-3xl rounded-2xl p-6 border border-white/10 shadow-2xl">
+          <div className={`${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-gray-200'} w-full max-w-3xl rounded-2xl p-6 border shadow-2xl transition-colors`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{editingOnboardingId ? 'Edit Onboarding' : 'Create New Onboarding'}</h3>
+              <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{editingOnboardingId ? 'Edit Onboarding' : 'Create New Onboarding'}</h3>
               <button
                 onClick={() => {
                   setShowOnboardingModal(false);
@@ -4987,91 +5562,91 @@ Generated by HR Dashboard - Placement Management System`;
                   setEditingOnboardingId(null);
                   setOnboardingError('');
                 }}
-                className="p-2 rounded-xl hover:bg-white/10 text-slate-900"
+                className={`p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-white/10 text-white' : 'hover:bg-gray-100 text-gray-900'}`}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {onboardingError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
+              <div className={`mb-4 p-3 rounded-xl text-sm ${isDark ? 'bg-red-500/10 border border-red-500/20 text-red-300' : 'bg-red-100 border border-red-200 text-red-700'}`}>
                 {onboardingError}
               </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Employee Name *</label>
+                <label className={`block text-sm font-semibold drop-shadow-lg mb-1 ${isDark ? 'text-yellow-300' : 'text-gray-800'}`}>Employee Name *</label>
                 <input
                   type="text"
                   value={onboardingForm.employeeName}
                   onChange={(event) => setOnboardingForm({ ...onboardingForm, employeeName: event.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-blue-700/40 dark:border-yellow-300/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg placeholder-blue-400 dark:placeholder-yellow-400"
+                  className={`w-full p-3 rounded-xl border font-bold drop-shadow-lg placeholder-gray-400 transition-colors ${isDark ? 'bg-slate-800 border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Email</label>
+                <label className={`block text-sm font-semibold drop-shadow-lg mb-1 ${isDark ? 'text-yellow-300' : 'text-gray-800'}`}>Email</label>
                 <input
                   type="email"
                   value={onboardingForm.email}
                   onChange={(event) => setOnboardingForm({ ...onboardingForm, email: event.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-blue-700/40 dark:border-yellow-300/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg placeholder-blue-400 dark:placeholder-yellow-400"
+                  className={`w-full p-3 rounded-xl border font-bold drop-shadow-lg placeholder-gray-400 transition-colors ${isDark ? 'bg-slate-800 border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Position *</label>
+                <label className={`block text-sm font-semibold drop-shadow-lg mb-1 ${isDark ? 'text-yellow-300' : 'text-gray-800'}`}>Position *</label>
                 <input
                   type="text"
                   value={onboardingForm.position}
                   onChange={(event) => setOnboardingForm({ ...onboardingForm, position: event.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-blue-700/40 dark:border-yellow-300/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg placeholder-blue-400 dark:placeholder-yellow-400"
+                  className={`w-full p-3 rounded-xl border font-bold drop-shadow-lg placeholder-gray-400 transition-colors ${isDark ? 'bg-slate-800 border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Department</label>
+                <label className={`block text-sm font-semibold drop-shadow-lg mb-1 ${isDark ? 'text-yellow-300' : 'text-gray-800'}`}>Department</label>
                 <input
                   type="text"
                   value={onboardingForm.department}
                   onChange={(event) => setOnboardingForm({ ...onboardingForm, department: event.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-blue-700/40 dark:border-yellow-300/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg placeholder-blue-400 dark:placeholder-yellow-400"
+                  className={`w-full p-3 rounded-xl border font-bold drop-shadow-lg placeholder-gray-400 transition-colors ${isDark ? 'bg-slate-800 border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Join Date</label>
+                <label className={`block text-sm font-semibold drop-shadow-lg mb-1 ${isDark ? 'text-yellow-300' : 'text-gray-800'}`}>Join Date</label>
                 <input
                   type="date"
                   value={onboardingForm.joinDate}
                   onChange={(event) => setOnboardingForm({ ...onboardingForm, joinDate: event.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-blue-700/40 dark:border-yellow-300/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg placeholder-blue-400 dark:placeholder-yellow-400"
+                  className={`w-full p-3 rounded-xl border font-bold drop-shadow-lg placeholder-gray-400 transition-colors ${isDark ? 'bg-slate-800 border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Buddy</label>
+                <label className={`block text-sm font-semibold drop-shadow-lg mb-1 ${isDark ? 'text-yellow-300' : 'text-gray-800'}`}>Buddy</label>
                 <input
                   type="text"
                   value={onboardingForm.buddy}
                   onChange={(event) => setOnboardingForm({ ...onboardingForm, buddy: event.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-blue-700/40 dark:border-yellow-300/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg placeholder-blue-400 dark:placeholder-yellow-400"
+                  className={`w-full p-3 rounded-xl border font-bold drop-shadow-lg placeholder-gray-400 transition-colors ${isDark ? 'bg-slate-800 border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Progress (%)</label>
+                <label className={`block text-sm font-semibold drop-shadow-lg mb-1 ${isDark ? 'text-yellow-300' : 'text-gray-800'}`}>Progress (%)</label>
                 <input
                   type="number"
                   min="0"
                   max="100"
                   value={onboardingForm.progress}
                   onChange={(event) => setOnboardingForm({ ...onboardingForm, progress: event.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-blue-700/40 dark:border-yellow-300/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg placeholder-blue-400 dark:placeholder-yellow-400"
+                  className={`w-full p-3 rounded-xl border font-bold drop-shadow-lg placeholder-gray-400 transition-colors ${isDark ? 'bg-slate-800 border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-blue-700 dark:text-yellow-300 drop-shadow-lg mb-1">Tasks (one task per line)</label>
+                <label className={`block text-sm font-semibold drop-shadow-lg mb-1 ${isDark ? 'text-yellow-300' : 'text-gray-800'}`}>Tasks (one task per line)</label>
                 <textarea
                   rows={5}
                   value={onboardingForm.tasksText}
                   onChange={(event) => setOnboardingForm({ ...onboardingForm, tasksText: event.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-slate-800 border border-blue-700/40 dark:border-yellow-300/40 text-blue-900 dark:text-yellow-200 font-bold drop-shadow-lg placeholder-blue-400 dark:placeholder-yellow-400"
+                  className={`w-full p-3 rounded-xl border font-bold drop-shadow-lg placeholder-gray-400 transition-colors ${isDark ? 'bg-slate-800 border-yellow-300/40 text-yellow-200 placeholder-yellow-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                   placeholder={'NDA signed\nLaptop setup\nTeam introduction'}
                 />
               </div>
@@ -5085,7 +5660,7 @@ Generated by HR Dashboard - Placement Management System`;
                   setEditingOnboardingId(null);
                   setOnboardingError('');
                 }}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white"
+                className={`px-4 py-2 rounded-xl transition-colors ${isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}
               >
                 Cancel
               </button>
@@ -5669,7 +6244,7 @@ Generated by HR Dashboard - Placement Management System`;
     switch(currentView) {
       case 'overview': return renderOverview();
       case 'profile': return renderProfile();
-      case 'jobs': return renderJobs();
+      case 'jobs': return renderJobsAndReqs();
       case 'talent': return renderTalent();
       case 'interviews': return renderInterviews();
       case 'offers': return renderOffers();
@@ -5704,7 +6279,8 @@ Generated by HR Dashboard - Placement Management System`;
 
   const sidebarWidth = isSidebarOpen ? 280 : 80;
   const sidebarMinWidth = isSidebarOpen ? 220 : 60;
-  const navItemClass = (isActive) => `flex items-center ${isSidebarOpen ? 'justify-start gap-3 px-6' : 'justify-center px-2'} py-3 rounded-xl font-semibold transition-all text-left ${isActive ? 'bg-blue-700 text-white' : 'hover:bg-blue-900/30 text-white/80'}`;
+  // Changed sidebar/nav color from blue to teal
+  const navItemClass = (isActive) => `flex items-center ${isSidebarOpen ? 'justify-start gap-3 px-6' : 'justify-center px-2'} py-3 rounded-xl font-semibold transition-all text-left ${isActive ? 'bg-teal-700 text-white' : 'hover:bg-teal-900/30 text-white/80'}`;
   const handleManualLogout = () => {
     const shouldLogout = window.confirm('Are you sure you want to log out?');
     if (!shouldLogout) return;
@@ -5716,18 +6292,17 @@ Generated by HR Dashboard - Placement Management System`;
 
   return (
     <>
-      <style>{customScrollbar}</style>
       <div className={`hr-dashboard min-h-screen font-sans transition-colors duration-300 ${
         isDark 
           ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 text-white' 
-          : 'bg-gradient-to-br from-blue-50 via-white to-purple-50 text-gray-900'
+          : 'bg-gradient-to-br from-teal-50 via-white to-green-50 text-gray-900'
       }`}>
         {/* Enhanced Sidebar */}
         <aside
           className={`fixed inset-y-0 left-0 z-50 shadow-2xl transition-all duration-500 flex flex-col ${
             isDark
               ? 'bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900/80 text-white'
-              : 'bg-gradient-to-b from-blue-600 to-indigo-700 text-white'
+              : 'bg-gradient-to-b from-slate-600 to-blue-700 text-white'
           }`}
           style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarMinWidth}px`, maxWidth: '100vw', overflow: 'hidden' }}
         >
@@ -5805,13 +6380,6 @@ Generated by HR Dashboard - Placement Management System`;
               title="Applications"
             >
               <FileText className="h-5 w-5" /> {isSidebarOpen && 'Applications'}
-            </button>
-            <button
-              className={navItemClass(currentView === 'requisitions')}
-              onClick={() => setCurrentView('requisitions')}
-              title="Job Requisitions"
-            >
-              <Briefcase className="h-5 w-5" /> {isSidebarOpen && 'Job Requisitions'}
             </button>
             <button
               className={navItemClass(currentView === 'smart-hiring')}
@@ -5913,11 +6481,29 @@ Generated by HR Dashboard - Placement Management System`;
                           >
                             <div className="flex gap-3">
                               <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
-                                notif.type === 'email' || notif.type === 'application' ? 'bg-emerald-500' : 'bg-amber-500'
+                                notif.type === 'email' || notif.type === 'application' ? 'bg-emerald-500' : 
+                                notif.type === 'interview' ? 'bg-blue-500' :
+                                notif.type === 'placement' ? 'bg-purple-500' :
+                                'bg-amber-500'
                               }`} />
                               <div className="flex-1 min-w-0">
-                                <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{notif.title}</p>
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{notif.title}</p>
+                                  {notif.userId?.role && (
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                      notif.userId.role === 'admin' ? 'bg-red-500/20 text-red-600 dark:text-red-400' :
+                                      notif.userId.role === 'staff' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' :
+                                      notif.userId.role === 'student' ? 'bg-green-500/20 text-green-600 dark:text-green-400' :
+                                      'bg-gray-500/20 text-gray-600 dark:text-gray-400'
+                                    }`}>
+                                      {notif.userId.role}
+                                    </span>
+                                  )}
+                                </div>
                                 <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{notif.message}</p>
+                                {notif.userId?.name && (
+                                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>From: {notif.userId.name}</p>
+                                )}
                               </div>
                               <span className={`text-xs whitespace-nowrap ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>{new Date(notif.createdAt).toLocaleTimeString()}</span>
                             </div>
@@ -5929,25 +6515,17 @@ Generated by HR Dashboard - Placement Management System`;
                 )}
               </div>
               {/* Theme Switcher */}
-              <div className={`flex items-center gap-2 ${isDark ? 'bg-slate-700' : 'bg-gray-100'} rounded-xl p-1`}>
-                {[
-                  { id: 'light', icon: Sun, label: 'Light' },
-                  { id: 'dark', icon: Moon, label: 'Dark' },
-                  { id: 'system', icon: Monitor, label: 'System' }
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => handleThemeChange(t.id)}
-                    className={`p-2 rounded-lg transition-all ${
-                      theme === t.id
-                        ? isDark ? 'bg-slate-600 text-white shadow-sm' : 'bg-white text-blue-600 shadow-sm'
-                        : isDark ? 'text-slate-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                    title={t.label}
-                  >
-                    <t.icon className="h-4 w-4" />
-                  </button>
-                ))}
+              <div className={`flex items-center ${isDark ? 'bg-slate-700' : 'bg-gray-100'} rounded-xl p-1`}>
+                <select
+                  value={theme === 'dark' ? 'dark' : 'light'}
+                  onChange={e => handleThemeChange(e.target.value)}
+                  className={`bg-transparent outline-none border-0 text-base font-semibold px-3 py-2 rounded-xl ${isDark ? 'text-white' : 'text-gray-700'}`}
+                  style={{ minWidth: 90 }}
+                  aria-label="Theme Mode"
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
               </div>
               {/* Schedule Drive Button */}
               <button
@@ -6010,63 +6588,63 @@ Generated by HR Dashboard - Placement Management System`;
       {/* RESUME ANALYSIS MODAL */}
       {showResumeModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-3xl border border-white/10 max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl animate-in fade-in scale-95 duration-200">
+          <div className={`${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-gray-200'} rounded-3xl border max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl animate-in fade-in scale-95 duration-200`}>
             {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-b from-slate-900 to-slate-900/80 p-8 border-b border-white/10 flex justify-between items-center backdrop-blur-xl">
+            <div className={`sticky top-0 ${isDark ? 'bg-gradient-to-b from-slate-900 to-slate-900/80 border-white/10' : 'bg-gradient-to-b from-white to-gray-50 border-gray-200'} p-8 border-b flex justify-between items-center backdrop-blur-xl`}>
               <div>
-                <h3 className="text-2xl font-bold text-white">Resume Analysis</h3>
-                <p className="text-slate-400 text-sm mt-1">{selectedStudentForAnalysis?.name}</p>
+                <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Resume Analysis</h3>
+                <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{selectedStudentForAnalysis?.name}</p>
               </div>
               <button 
                 onClick={() => setShowResumeModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
+                className={`p-2 rounded-lg transition-all ${isDark ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-gray-100 text-gray-600'}`}
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-8 space-y-6">
+            <div className={`p-8 space-y-6 ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
               {analysisLoading ? (
                 <div className="text-center py-12">
                   <div className="inline-block">
-                    <RefreshCw className="h-8 w-8 animate-spin text-blue-400 mb-4" />
+                    <RefreshCw className={`h-8 w-8 animate-spin mb-4 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                   </div>
-                  <p className="text-white font-medium">Analyzing resume...</p>
-                  <p className="text-slate-400 text-sm mt-1">Using AI to evaluate qualifications</p>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Analyzing resume...</p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Using AI to evaluate qualifications</p>
                 </div>
               ) : analysisResult ? (
                 <>
                   {/* ATS Score */}
-                  <div className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 rounded-2xl p-6 border border-white/10">
+                  <div className={`${isDark ? 'bg-gradient-to-br from-blue-900/40 to-purple-900/40 border-white/10' : 'bg-gradient-to-br from-blue-100 to-purple-100 border-blue-200'} rounded-2xl p-6 border`}>
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-xl font-bold text-white flex items-center gap-2">
-                        <Target className="h-6 w-6 text-blue-400" /> ATS Score
+                      <h4 className={`text-xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        <Target className={`h-6 w-6 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} /> ATS Score
                       </h4>
-                      <div className="text-4xl font-black text-blue-400">{analysisResult.atsScore}</div>
+                      <div className={`text-4xl font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{analysisResult.atsScore}</div>
                     </div>
-                    <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden mb-4">
+                    <div className={`w-full h-3 rounded-full overflow-hidden mb-4 ${isDark ? 'bg-slate-700' : 'bg-gray-300'}`}>
                       <div 
                         className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000"
                         style={{ width: `${analysisResult.atsScore}%` }}
                       />
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 text-sm">Placement Probability</span>
+                      <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Placement Probability</span>
                       <span className="text-emerald-400 font-bold">{analysisResult.placementProbability}%</span>
                     </div>
                   </div>
 
                   {/* Strengths */}
                   <div>
-                    <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <ZapIcon className="h-5 w-5 text-emerald-400" /> Key Strengths
+                    <h4 className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      <ZapIcon className={`h-5 w-5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} /> Key Strengths
                     </h4>
                     <div className="space-y-2">
                       {analysisResult.strengths?.map((strength, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                          <CheckCircle className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                          <span className="text-slate-300">{strength}</span>
+                        <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-300'}`}>
+                          <CheckCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <span className={isDark ? 'text-slate-300' : 'text-gray-700'}>{strength}</span>
                         </div>
                       ))}
                     </div>
@@ -6074,14 +6652,14 @@ Generated by HR Dashboard - Placement Management System`;
 
                   {/* Improvements */}
                   <div>
-                    <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5 text-amber-400" /> Areas for Improvement
+                    <h4 className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      <AlertCircle className={`h-5 w-5 ${isDark ? 'text-amber-400' : 'text-amber-600'}`} /> Areas for Improvement
                     </h4>
                     <div className="space-y-2">
                       {analysisResult.improvements?.map((improvement, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                          <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                          <span className="text-slate-300">{improvement}</span>
+                        <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-300'}`}>
+                          <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${isDark ? 'text-amber-400' : 'text-amber-600'}`} />
+                          <span className={isDark ? 'text-slate-300' : 'text-gray-700'}>{improvement}</span>
                         </div>
                       ))}
                     </div>
@@ -6089,12 +6667,12 @@ Generated by HR Dashboard - Placement Management System`;
 
                   {/* Recommended Skills */}
                   <div>
-                    <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <Star className="h-5 w-5 text-purple-400" /> Recommended Skills to Add
+                    <h4 className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      <Star className={`h-5 w-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} /> Recommended Skills to Add
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       {analysisResult.recommendedSkills?.map((skill, i) => (
-                        <span key={i} className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-xl text-sm font-medium">
+                        <span key={i} className={`px-4 py-2 rounded-xl text-sm font-medium border ${isDark ? 'bg-purple-500/20 border-purple-500/30 text-purple-300' : 'bg-purple-100 border-purple-300 text-purple-700'}`}>
                           {skill}
                         </span>
                       ))}
@@ -6102,9 +6680,9 @@ Generated by HR Dashboard - Placement Management System`;
                   </div>
 
                   {/* Assessment */}
-                  <div className="bg-slate-800 rounded-2xl p-6 border border-white/5">
-                    <h4 className="text-lg font-bold text-white mb-3">Assessment</h4>
-                    <p className="text-slate-300 leading-relaxed">{analysisResult.assessment}</p>
+                  <div className={`rounded-2xl p-6 border ${isDark ? 'bg-slate-800 border-white/5' : 'bg-gray-100 border-gray-300'}`}>
+                    <h4 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Assessment</h4>
+                    <p className={`leading-relaxed ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{analysisResult.assessment}</p>
                   </div>
 
                   {/* Actions */}
@@ -6112,7 +6690,7 @@ Generated by HR Dashboard - Placement Management System`;
                     <button onClick={() => setShowResumeModal(false)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-6 rounded-xl font-bold shadow-lg hover:shadow-xl">
                       Schedule Interview
                     </button>
-                    <button onClick={() => setShowResumeModal(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 px-6 rounded-xl font-bold transition-all">
+                    <button onClick={() => setShowResumeModal(false)} className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'}`}>
                       Close
                     </button>
                   </div>
@@ -6126,94 +6704,105 @@ Generated by HR Dashboard - Placement Management System`;
       {/* JOB POST MODAL */}
       {showJobPostModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-3xl border border-white/10 max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl">
+          <div className={`${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-gray-200'} rounded-3xl border max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl`}>
             {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-b from-slate-900 to-slate-900/80 p-8 border-b border-white/10 flex justify-between items-center backdrop-blur-xl">
-              <h3 className="text-2xl font-bold text-white">Post New Job</h3>
+            <div className={`sticky top-0 ${isDark ? 'bg-gradient-to-b from-slate-900 to-slate-900/80 border-white/10' : 'bg-gradient-to-b from-white to-gray-50 border-gray-200'} p-8 border-b flex justify-between items-center backdrop-blur-xl`}>
+              <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Post New Job</h3>
               <button 
                 onClick={() => setShowJobPostModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
+                className={`p-2 rounded-lg transition-all ${isDark ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-gray-100 text-gray-600'}`}
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-8 space-y-5">
+            <div className={`p-8 space-y-5 ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
               <div>
-                <label className="block text-sm font-bold text-white mb-2">Job Title *</label>
+                <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Job Title *</label>
                 <input 
                   type="text" 
                   value={newJob.title}
                   onChange={(e) => setNewJob({...newJob, title: e.target.value})}
                   placeholder="e.g., Senior React Developer"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
+                  className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white mb-2">Position *</label>
+                <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Company *</label>
+                <input 
+                  type="text" 
+                  value={newJob.company}
+                  onChange={(e) => setNewJob({...newJob, company: e.target.value})}
+                  placeholder="e.g., Tech Corp"
+                  className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Position *</label>
                 <input 
                   type="text" 
                   value={newJob.position}
                   onChange={(e) => setNewJob({...newJob, position: e.target.value})}
                   placeholder="e.g., Developer"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
+                  className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-white mb-2">Salary</label>
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Salary</label>
                   <input 
                     type="text" 
                     value={newJob.salary}
                     onChange={(e) => setNewJob({...newJob, salary: e.target.value})}
                     placeholder="e.g., $100k-$150k"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
+                    className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-white mb-2">Location *</label>
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Location *</label>
                   <input 
                     type="text" 
                     value={newJob.location}
                     onChange={(e) => setNewJob({...newJob, location: e.target.value})}
                     placeholder="e.g., Remote"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
+                    className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white mb-2">Description</label>
+                <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Description</label>
                 <textarea 
                   value={newJob.description}
                   onChange={(e) => setNewJob({...newJob, description: e.target.value})}
                   placeholder="Job description..."
                   rows="3"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all resize-none"
+                  className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all resize-none ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white mb-2">Required Skills (comma-separated)</label>
+                <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Required Skills (comma-separated)</label>
                 <input 
                   type="text" 
                   value={newJob.skills}
                   onChange={(e) => setNewJob({...newJob, skills: e.target.value})}
                   placeholder="e.g., React, TypeScript, Node.js"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
+                  className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all ${isDark ? 'bg-slate-800 border-white/10 text-white placeholder-slate-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-white mb-2">Job Type</label>
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Job Type</label>
                   <select 
                     value={newJob.jobType}
                     onChange={(e) => setNewJob({...newJob, jobType: e.target.value})}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+                    className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                   >
                     <option>Full-time</option>
                     <option>Part-time</option>
@@ -6222,11 +6811,11 @@ Generated by HR Dashboard - Placement Management System`;
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-white mb-2">Urgency</label>
+                  <label className={`block text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Urgency</label>
                   <select 
                     value={newJob.urgency}
                     onChange={(e) => setNewJob({...newJob, urgency: e.target.value})}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+                    className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition-all ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                   >
                     <option>Low</option>
                     <option>Medium</option>
@@ -6236,17 +6825,24 @@ Generated by HR Dashboard - Placement Management System`;
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-4 pt-6 border-t border-white/10">
+              {/* Actions & Feedback */}
+              {jobPostError && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm">{jobPostError}</div>
+              )}
+              {jobPostSuccess && (
+                <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-sm">{jobPostSuccess}</div>
+              )}
+              <div className={`flex gap-4 pt-6 border-t ${isDark ? 'border-white/10' : 'border-gray-300'}`}>
                 <button 
                   onClick={postNewJob}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-6 rounded-xl font-bold shadow-lg hover:shadow-xl"
+                  disabled={jobPostLoading}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-6 rounded-xl font-bold shadow-lg hover:shadow-xl disabled:opacity-60"
                 >
-                  Post Job
+                  {jobPostLoading ? 'Posting...' : 'Post Job'}
                 </button>
                 <button 
                   onClick={() => setShowJobPostModal(false)}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 px-6 rounded-xl font-bold transition-all"
+                  className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'}`}
                 >
                   Cancel
                 </button>
@@ -6366,6 +6962,23 @@ Generated by HR Dashboard - Placement Management System`;
                   placeholder="Any additional information..." 
                   className={`w-full p-3 rounded-xl border ${isDark ? 'bg-slate-700 border-white/10 text-white' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 ring-blue-500 outline-none h-20 resize-none`}
                 />
+                <button
+                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all"
+                  onClick={async () => {
+                    try {
+                      await placementsAPI.create({
+                        companyName: driveForm.companyName,
+                        notes: driveForm.notes,
+                        // Add other required fields as needed
+                      });
+                      alert('Notes saved to backend!');
+                    } catch (err) {
+                      alert('Failed to save notes.');
+                    }
+                  }}
+                >
+                  Save Notes to Backend
+                </button>
               </div>
             </div>
 
@@ -6391,245 +7004,213 @@ Generated by HR Dashboard - Placement Management System`;
 
       {/* PROFILE EDIT MODAL */}
       {showProfileModal && (
-        <>
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className={`${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-gray-200'} rounded-3xl border max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl`}>
-              {/* Header */}
-              <div className="sticky top-0 bg-gradient-to-b from-slate-900 to-slate-900/80 p-8 border-b-2 border-cyan-500/30 flex justify-between items-center backdrop-blur-xl">
-                <h3 className="text-3xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent">
-                  {editingJobRequisitionId ? 'Edit Job Requisition' : 'Create Job Requisition'}
-                </h3>
-                <button 
-                  onClick={() => setShowProfileModal(false)}
-                  className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="p-8 space-y-5">
-                {profileError && (
-                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg">
-                    {profileError}
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Full Name *</label>
-                  <input 
-                    type="text" 
-                    value={profileForm.name}
-                    onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
-                    placeholder="Your full name"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Phone</label>
-                  <input 
-                    type="tel" 
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
-                    placeholder="Your phone number"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-white mb-3">Profile Picture</label>
-                  <div className="flex justify-center">
-                    <ImageCropUpload
-                      currentImage={profileForm.avatar ? getAvatarUrl(profileForm.avatar) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id || 'user'}`}
-                      userName={profileForm.name}
-                      onImageUpdate={(newAvatarUrl) => {
-                        setProfileForm({...profileForm, avatar: newAvatarUrl});
-                        if (user) {
-                          user.avatar = newAvatarUrl;
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-4 pt-6 border-t border-white/10">
-                  <button 
-                    onClick={handleProfileSubmit}
-                    disabled={profileSubmitting}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 px-6 rounded-xl font-bold shadow-lg hover:shadow-xl"
-                  >
-                    {profileSubmitting ? 'Saving...' : 'Save Changes'}
-                  </button>
-                  <button 
-                    onClick={() => setShowProfileModal(false)}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 px-6 rounded-xl font-bold transition-all"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
+        <ProfileModal
+          user={user}
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          onSave={(updated) => {
+            setStudents((prev) => prev.map(s => (s._id === updated.studentId || s.id === updated.studentId) ? { ...s, ...updated } : s));
+          }}
+          isDark={isDark}
+        />
       )}
 
       {/* JOB REQUISITION MODAL */}
       {showJobRequisitionModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl border-2 border-cyan-500/30 max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl shadow-cyan-500/20">
-            {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900/80 p-8 border-b-2 border-cyan-500/30 flex justify-between items-center backdrop-blur-xl">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent">
-                {editingJobRequisitionId ? 'Edit Job Requisition' : 'Create Job Requisition'}
-              </h3>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-cyan-400/40">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-3xl font-bold text-cyan-900">
+                  {editingJobRequisitionId ? 'Edit Job Requisition' : 'Create Job Requisition'}
+                </h2>
+                <p className="text-cyan-700 mt-1">Fill out the requisition details below</p>
+              </div>
               <button 
                 onClick={closeJobRequisitionModal}
-                className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
+                className="p-2 hover:bg-cyan-100 rounded-2xl transition-all"
               >
-                <X className="h-6 w-6" />
+                <X className="w-6 h-6 text-cyan-700" />
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-8 space-y-5">
-              {jobRequisitionError && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg">
-                  {jobRequisitionError}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-bold text-white mb-2">Job Title *</label>
-                <input 
-                  type="text" 
-                  value={jobRequisition.title}
-                  onChange={(e) => setJobRequisition({...jobRequisition, title: e.target.value})}
-                  placeholder="e.g., Senior Developer"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            {/* Error Message */}
+            {jobRequisitionError && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <label className="block text-sm font-bold text-white mb-2">Department *</label>
-                  <input 
-                    type="text" 
-                    value={jobRequisition.department}
-                    onChange={(e) => setJobRequisition({...jobRequisition, department: e.target.value})}
-                    placeholder="e.g., Engineering"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Location *</label>
-                  <input 
-                    type="text" 
-                    value={jobRequisition.location}
-                    onChange={(e) => setJobRequisition({...jobRequisition, location: e.target.value})}
-                    placeholder="e.g., Remote"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
-                  />
+                  <p className="font-bold text-red-900">Error</p>
+                  <p className="text-red-800">{jobRequisitionError}</p>
                 </div>
               </div>
+            )}
 
-              <div>
-                <label className="block text-sm font-bold text-white mb-2">Description</label>
+            {/* Requisition Form */}
+            <form onSubmit={e => { e.preventDefault(); handleJobRequisitionSubmit(); }} className="space-y-8">
+              {/* Section 1: Job Details */}
+              <div className="pb-6 border-b border-cyan-200">
+                <h3 className="text-lg font-bold text-cyan-900 mb-4 flex items-center gap-2">
+                  <Briefcase size={20} />
+                  Job Details
+                </h3>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-bold text-cyan-700 mb-2">
+                      Job Title *
+                    </label>
+                    <input 
+                      type="text"
+                      value={jobRequisition.title}
+                      onChange={e => setJobRequisition({ ...jobRequisition, title: e.target.value })}
+                      placeholder="e.g. Senior Developer"
+                      className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 placeholder:text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-cyan-700 mb-2">
+                      Department *
+                    </label>
+                    <input 
+                      type="text"
+                      value={jobRequisition.department}
+                      onChange={e => setJobRequisition({ ...jobRequisition, department: e.target.value })}
+                      placeholder="e.g. Engineering"
+                      className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 placeholder:text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-cyan-700 mb-2">
+                      Location *
+                    </label>
+                    <input 
+                      type="text"
+                      value={jobRequisition.location}
+                      onChange={e => setJobRequisition({ ...jobRequisition, location: e.target.value })}
+                      placeholder="e.g. Remote"
+                      className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 placeholder:text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-cyan-700 mb-2">
+                      Employment Type
+                    </label>
+                    <select 
+                      value={jobRequisition.employmentType}
+                      onChange={e => setJobRequisition({ ...jobRequisition, employmentType: e.target.value })}
+                      className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option>Full-time</option>
+                      <option>Part-time</option>
+                      <option>Contract</option>
+                      <option>Internship</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Compensation & Requirements */}
+              <div className="pb-6 border-b border-cyan-200">
+                <h3 className="text-lg font-bold text-cyan-900 mb-4 flex items-center gap-2">
+                  <Award size={20} />
+                  Compensation & Requirements
+                </h3>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-bold text-cyan-700 mb-2">
+                      Number of Positions
+                    </label>
+                    <input 
+                      type="number"
+                      value={jobRequisition.numberOfPositions}
+                      onChange={e => setJobRequisition({ ...jobRequisition, numberOfPositions: parseInt(e.target.value) })}
+                      placeholder="1"
+                      className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 placeholder:text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-cyan-700 mb-2">
+                      Priority
+                    </label>
+                    <select 
+                      value={jobRequisition.priority}
+                      onChange={e => setJobRequisition({ ...jobRequisition, priority: e.target.value })}
+                      className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option>Low</option>
+                      <option>Medium</option>
+                      <option>High</option>
+                      <option>Critical</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-cyan-700 mb-2">
+                      Education Level
+                    </label>
+                    <select 
+                      value={jobRequisition.education}
+                      onChange={e => setJobRequisition({ ...jobRequisition, education: e.target.value })}
+                      className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option>High School</option>
+                      <option>Diploma</option>
+                      <option>Bachelor</option>
+                      <option>Master</option>
+                      <option>PhD</option>
+                      <option>Any</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-cyan-700 mb-2">
+                      Required Skills (comma-separated)
+                    </label>
+                    <input 
+                      type="text"
+                      value={jobRequisition.requiredSkills}
+                      onChange={e => setJobRequisition({ ...jobRequisition, requiredSkills: e.target.value })}
+                      placeholder="e.g. React, Node.js, MongoDB"
+                      className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 placeholder:text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Description */}
+              <div className="pb-6 border-b border-cyan-200">
+                <h3 className="text-lg font-bold text-cyan-900 mb-4 flex items-center gap-2">
+                  <FileText size={20} />
+                  Description
+                </h3>
                 <textarea 
                   value={jobRequisition.description}
-                  onChange={(e) => setJobRequisition({...jobRequisition, description: e.target.value})}
+                  onChange={e => setJobRequisition({ ...jobRequisition, description: e.target.value })}
                   placeholder="Job description..."
-                  rows="3"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all resize-none"
+                  rows={4}
+                  className="w-full p-3 border border-cyan-200 rounded-2xl bg-white text-cyan-900 placeholder:text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Number of Positions</label>
-                  <input 
-                    type="number" 
-                    value={jobRequisition.numberOfPositions}
-                    onChange={(e) => setJobRequisition({...jobRequisition, numberOfPositions: parseInt(e.target.value)})}
-                    placeholder="1"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Employment Type</label>
-                  <select 
-                    value={jobRequisition.employmentType}
-                    onChange={(e) => setJobRequisition({...jobRequisition, employmentType: e.target.value})}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                  >
-                    <option>Full-time</option>
-                    <option>Part-time</option>
-                    <option>Contract</option>
-                    <option>Internship</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-white mb-2">Required Skills (comma-separated)</label>
-                <input 
-                  type="text" 
-                  value={jobRequisition.requiredSkills}
-                  onChange={(e) => setJobRequisition({...jobRequisition, requiredSkills: e.target.value})}
-                  placeholder="e.g., React, Node.js, MongoDB"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Priority</label>
-                  <select 
-                    value={jobRequisition.priority}
-                    onChange={(e) => setJobRequisition({...jobRequisition, priority: e.target.value})}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                  >
-                    <option>Low</option>
-                    <option>Medium</option>
-                    <option>High</option>
-                    <option>Critical</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Education Level</label>
-                  <select 
-                    value={jobRequisition.education}
-                    onChange={(e) => setJobRequisition({...jobRequisition, education: e.target.value})}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                  >
-                    <option>High School</option>
-                    <option>Diploma</option>
-                    <option>Bachelor</option>
-                    <option>Master</option>
-                    <option>PhD</option>
-                    <option>Any</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-4 pt-6 border-t-2 border-cyan-500/20">
-                <button 
-                  onClick={handleJobRequisitionSubmit}
+              {/* Section 4: Actions */}
+              <div className="flex gap-4 pt-6">
+                <button
+                  type="submit"
                   disabled={jobRequisitionSubmitting}
                   className="flex-1 bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 hover:from-emerald-500 hover:via-green-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 px-6 rounded-xl font-black transition-all shadow-2xl hover:shadow-emerald-500/50 transform hover:scale-105"
                 >
                   {jobRequisitionSubmitting ? (editingJobRequisitionId ? 'Updating...' : 'Creating...') : (editingJobRequisitionId ? 'Update Requisition' : 'Create Requisition')}
                 </button>
-                <button 
+                <button
+                  type="button"
                   onClick={closeJobRequisitionModal}
                   className="flex-1 bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 hover:from-slate-600 hover:via-slate-500 hover:to-slate-600 text-white py-4 px-6 rounded-xl font-black transition-all shadow-xl transform hover:scale-105"
                 >
                   Cancel
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

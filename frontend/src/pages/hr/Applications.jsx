@@ -6,9 +6,13 @@ import { format } from 'date-fns';
 
 const HRApplications = () => {
   const [applications, setApplications] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [emailLookup, setEmailLookup] = useState('');
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDetailedApplicationModal, setShowDetailedApplicationModal] = useState(false);
@@ -17,6 +21,37 @@ const HRApplications = () => {
 
   useEffect(() => {
     fetchApplications();
+  }, []);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchApplications();
+    }, 10000);
+
+    const onWindowFocus = () => fetchApplications();
+    window.addEventListener('focus', onWindowFocus);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', onWindowFocus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.BroadcastChannel !== 'function') return;
+
+    const refreshChannel = new window.BroadcastChannel('hr-dashboard-refresh');
+    const handleMessage = (event) => {
+      if (event.data?.type === 'hr:refresh') {
+        fetchApplications();
+      }
+    };
+
+    refreshChannel.addEventListener('message', handleMessage);
+    return () => {
+      refreshChannel.removeEventListener('message', handleMessage);
+      refreshChannel.close();
+    };
   }, []);
 
   const fetchApplications = async () => {
@@ -37,7 +72,7 @@ const HRApplications = () => {
       }));
       setApplications(mapped);
     } catch (error) {
-      setApplications([]);
+      console.error('Failed to fetch HR applications:', error);
     } finally {
       setLoading(false);
     }
@@ -50,6 +85,21 @@ const HRApplications = () => {
       setDetailedApplication(res.data?.form || null);
     } catch (error) {
       setDetailedApplication(null);
+    } finally {
+      setLoadingDetailedApplication(false);
+    }
+  };
+
+  const fetchDetailedApplicationByEmail = async (email) => {
+    if (!email) return;
+    setLoadingDetailedApplication(true);
+    try {
+      const res = await detailedApplicationsAPI.getByEmail(email);
+      setDetailedApplication(res.data?.form || null);
+      setShowDetailedApplicationModal(true);
+    } catch (error) {
+      setDetailedApplication(null);
+      alert('No detailed application found for this email');
     } finally {
       setLoadingDetailedApplication(false);
     }
@@ -96,6 +146,31 @@ const HRApplications = () => {
     }
   };
 
+  // Bulk status update handler
+  const handleBulkStatusUpdate = async () => {
+    if (!bulkStatus || selectedIds.length === 0) return;
+    setBulkLoading(true);
+    try {
+      await applicationsAPI.bulkUpdateStatus({ ids: selectedIds, status: bulkStatus });
+      setApplications(prev => prev.map(app => selectedIds.includes(app.id) ? { ...app, status: bulkStatus } : app));
+      setSelectedIds([]);
+      setBulkStatus('');
+      alert('Bulk status update successful');
+    } catch (error) {
+      alert('Bulk status update failed');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  // Checkbox handlers
+  const handleSelectAll = (checked) => {
+    setSelectedIds(checked ? filteredApplications.map(app => app.id) : []);
+  };
+  const handleSelectOne = (id, checked) => {
+    setSelectedIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id));
+  };
+
   return (
     <div className="hr-dashboard space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
@@ -116,6 +191,21 @@ const HRApplications = () => {
             className="w-full bg-white dark:bg-white/5 border-2 border-gray-300 dark:border-white/10 rounded-xl pl-12 pr-4 py-3 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-slate-500 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all"
           />
         </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="email"
+            placeholder="Lookup detailed form by student email"
+            value={emailLookup}
+            onChange={(e) => setEmailLookup(e.target.value)}
+            className="min-w-[280px] bg-white dark:bg-white/5 border-2 border-gray-300 dark:border-white/10 rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-500"
+          />
+          <button
+            onClick={() => fetchDetailedApplicationByEmail(emailLookup)}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-sm"
+          >
+            Lookup
+          </button>
+        </div>
         <div className="flex gap-2">
           {['all', 'applied', 'shortlisted', 'interview', 'accepted', 'rejected'].map((status) => (
             <button
@@ -134,10 +224,48 @@ const HRApplications = () => {
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-gray-200 dark:border-white/10 shadow-lg dark:shadow-2xl overflow-hidden">
+        {/* Bulk Actions Bar */}
+        {selectedIds.length > 0 && (
+          <div className="flex items-center gap-4 px-6 py-4 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-700">
+            <span className="font-bold text-blue-700 dark:text-blue-200">{selectedIds.length} selected</span>
+            <select
+              value={bulkStatus}
+              onChange={e => setBulkStatus(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-blue-300 dark:border-blue-600 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-200 font-bold"
+            >
+              <option value="">Bulk Update Status</option>
+              <option value="applied">Applied</option>
+              <option value="shortlisted">Shortlisted</option>
+              <option value="interview">Interview</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <button
+              onClick={handleBulkStatusUpdate}
+              disabled={!bulkStatus || bulkLoading}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold disabled:opacity-50"
+            >
+              {bulkLoading ? 'Updating...' : 'Apply'}
+            </button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="ml-auto px-3 py-2 bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white rounded-lg font-bold hover:bg-gray-300 dark:hover:bg-white/20"
+            >
+              Clear
+            </button>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-100 dark:bg-slate-900 border-b-2 border-gray-300 dark:border-white/10">
               <tr>
+                <th className="px-4 py-4">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length === filteredApplications.length && filteredApplications.length > 0}
+                    onChange={e => handleSelectAll(e.target.checked)}
+                  />
+                </th>
                 <th className="px-6 py-4 text-left text-sm font-black text-gray-800 dark:text-slate-200">Candidate</th>
                 <th className="px-6 py-4 text-left text-sm font-black text-gray-800 dark:text-slate-200">Position</th>
                 <th className="px-6 py-4 text-left text-sm font-black text-gray-800 dark:text-slate-200">Company</th>
@@ -166,6 +294,13 @@ const HRApplications = () => {
               ) : (
                 filteredApplications.map((app) => (
                   <tr key={app.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors duration-200">
+                    <td className="px-4 py-5">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(app.id)}
+                        onChange={e => handleSelectOne(app.id, e.target.checked)}
+                      />
+                    </td>
                     <td className="px-6 py-5 text-sm font-bold text-gray-900 dark:text-white">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
@@ -288,7 +423,34 @@ const HRApplications = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              {/* Application Timeline */}
+              <div className="border-t-2 border-gray-200 dark:border-white/10 pt-6 mt-6">
+                <h4 className="text-sm font-black text-gray-600 dark:text-slate-400 uppercase mb-4">Application Timeline</h4>
+                <div className="space-y-4">
+                  {(() => {
+                    const statusHistory = [
+                      { stage: 'Applied', date: selectedApplication.fullData.createdAt, status: 'applied' },
+                      ...(selectedApplication.fullData.statusHistory || [])
+                    ];
+                    // If no statusHistory, fallback to just current status
+                    if (statusHistory.length === 1 && selectedApplication.fullData.status) {
+                      statusHistory.push({ stage: selectedApplication.fullData.status.charAt(0).toUpperCase() + selectedApplication.fullData.status.slice(1), date: selectedApplication.fullData.updatedAt, status: selectedApplication.fullData.status });
+                    }
+                    return statusHistory.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className={`w-2.5 h-2.5 mt-1 rounded-full ${item.status === 'accepted' ? 'bg-emerald-500' : item.status === 'rejected' ? 'bg-red-500' : item.status === 'interview' ? 'bg-amber-500' : 'bg-indigo-500'}`} />
+                        <div>
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">{item.stage}</p>
+                          <p className="text-xs text-gray-500 dark:text-slate-400">{item.status.charAt(0).toUpperCase() + item.status.slice(1)}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-slate-500">{item.date ? new Date(item.date).toLocaleString() : ''}</p>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
                 <button 
                   onClick={() => setShowDetailModal(false)}
                   className="flex-1 px-4 py-3 bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white rounded-xl font-bold transition-all hover:bg-gray-300 dark:hover:bg-white/20"

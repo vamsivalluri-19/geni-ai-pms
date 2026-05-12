@@ -23,10 +23,22 @@ const interviewExamSchema = new mongoose.Schema({
   },
   questions: [
     {
+      type: {
+        type: String,
+        enum: ['mcq', 'coding', 'short-answer', 'descriptive'],
+        default: 'mcq'
+      },
       question: {
         type: String,
         required: true
       },
+      options: [String],
+      correctAnswer: mongoose.Schema.Types.Mixed,
+      allowedProgrammingLanguages: [String],
+      starterCode: String,
+      sampleInput: String,
+      sampleOutput: String,
+      explanation: String,
       maxMarks: {
         type: Number,
         default: 10

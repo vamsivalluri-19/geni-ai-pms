@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Student from '../models/Student.js';
 import Application from '../models/Application.js';
 import Job from '../models/Job.js';
+import JobRequisition from '../models/JobRequisition.js';
 import Notification from '../models/Notification.js';
 import ExamSubmission from '../models/ExamSubmission.js';
 import Interview from '../models/Interview.js';
@@ -20,29 +21,89 @@ const defaultHRConfig = {
   apiKeyManagement: false
 };
 
-export const getStudentStats = (req, res) => {
+const normalizeStatus = (status = '') => String(status || '').trim().toLowerCase();
+
+const countByStatuses = (items = [], allowedStatuses = []) =>
+  items.filter((item) => allowedStatuses.includes(normalizeStatus(item?.status))).length;
+
+const parsePackageValue = (value) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (!value) return 0;
+
+  const text = String(value).replace(/,/g, '').toLowerCase();
+  const numberMatch = text.match(/(\d+(?:\.\d+)?)/);
+  if (!numberMatch) return 0;
+
+  const numeric = Number(numberMatch[1]);
+  if (!Number.isFinite(numeric)) return 0;
+
+  if (text.includes('cr')) return numeric * 100;
+  return numeric;
+};
+
+const averageNumber = (values = []) => {
+  const numericValues = values.filter((value) => Number.isFinite(value));
+  if (!numericValues.length) return 0;
+  return Number((numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length).toFixed(1));
+};
+
+export const getStudentStats = async (req, res) => {
   try {
     const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const student = await Student.findOne({ user: userId }).select('_id cgpa attendance attendancePercentage rollNumber branch phoneNumber skills resumeDraft avatar certifications user').lean();
+    const studentId = student?._id || null;
+
+    const [applications, interviews, placements, submissions, notifications, activeJobs] = await Promise.all([
+      studentId ? Application.find({ student: studentId }).sort({ updatedAt: -1 }).populate('job', 'company position').lean() : [],
+      studentId ? Interview.find({ student: studentId }).sort({ createdAt: -1 }).lean() : [],
+      PlacementResult.find({ studentUser: userId }).sort({ createdAt: -1 }).lean(),
+      ExamSubmission.find({ studentUser: userId }).sort({ submittedAt: -1 }).lean(),
+      Notification.find({ userId }).sort({ createdAt: -1 }).limit(20).lean(),
+      Job.find({ status: 'active' }).select('_id').lean()
+    ]);
+
+    const profileChecklist = [
+      Boolean(student?.user),
+      Boolean(student?.rollNumber),
+      Boolean(student?.branch),
+      Boolean(student?.phoneNumber),
+      Array.isArray(student?.skills) && student.skills.filter(Boolean).length >= 3,
+      Boolean(student?.resumeDraft),
+      Boolean(student?.avatar)
+    ];
+
+    const profileComplete = profileChecklist.length
+      ? Math.round((profileChecklist.filter(Boolean).length / profileChecklist.length) * 100)
+      : 0;
+
+    const offersCount = countByStatuses(placements, ['offered', 'accepted']);
+    const interviewCompletedCount = countByStatuses(interviews, ['passed', 'failed']);
+    const rejectedOffersCount = countByStatuses(placements, ['rejected']);
+
     
     const stats = {
-      applications: 12,
-      interviews: 3,
-      profileComplete: 85,
-      cgpa: 8.5,
-      attendance: 92,
-      offers: 2,
-      resumeViews: 156,
-      interviewsCompleted: 2,
-      offersRejected: 1,
-      averageScore: 7.8,
-      studyStreak: 15,
-      certificatesEarned: 5,
-      documentsDownloaded: 23,
-      attendancePercentage: 92,
-      skills: 5,
-      certifications: 5,
-      classes: 3,
-      companies: 5
+      applications: applications.length,
+      interviews: interviews.length,
+      profileComplete,
+      cgpa: Number(student?.cgpa || 0),
+      attendance: Number(student?.attendance || student?.attendancePercentage || 0),
+      offers: offersCount,
+      resumeViews: applications.length * 3 + notifications.length,
+      interviewsCompleted: interviewCompletedCount,
+      offersRejected: rejectedOffersCount,
+      averageScore: averageNumber(submissions.map((submission) => Number(submission?.score))),
+      studyStreak: Math.min(30, applications.length + interviews.length + submissions.length),
+      certificatesEarned: Array.isArray(student?.certifications) ? student.certifications.length : 0,
+      documentsDownloaded: submissions.length + notifications.length,
+      attendancePercentage: Number(student?.attendance || student?.attendancePercentage || 0),
+      skills: Array.isArray(student?.skills) ? student.skills.filter(Boolean).length : 0,
+      certifications: Array.isArray(student?.certifications) ? student.certifications.length : 0,
+      classes: activeJobs.length,
+      companies: new Set(applications.map((application) => application?.job?.company).filter(Boolean)).size
     };
 
     res.json({ success: true, data: stats });
@@ -50,8 +111,6 @@ export const getStudentStats = (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-const normalizeStatus = (status = '') => String(status).trim().toLowerCase();
 
 export const getStudentInsights = async (req, res) => {
   try {
@@ -199,21 +258,49 @@ export const getStudentInsights = async (req, res) => {
   }
 };
 
-export const getAdminStats = (req, res) => {
+export const getAdminStats = async (req, res) => {
   try {
+    const [
+      totalUsers,
+      totalStudents,
+      activeJobs,
+      applications,
+      interviews,
+      placements,
+      studentDocs
+    ] = await Promise.all([
+      User.countDocuments(),
+      Student.countDocuments(),
+      Job.countDocuments({ status: 'active' }),
+      Application.find().select('status job').populate('job', 'company').lean(),
+      Interview.find().select('result scheduledDate').lean(),
+      PlacementResult.find().select('status ctc companyName').lean(),
+      Student.find().select('cgpa').lean()
+    ]);
+
+    const completedPlacements = countByStatuses(placements, ['offered', 'accepted']);
+    const pendingInterviews = interviews.filter((interview) => normalizeStatus(interview?.result) === 'pending').length;
+    const companiesRegistered = new Set([
+      ...placements.map((placement) => placement?.companyName).filter(Boolean),
+      ...applications.map((application) => application?.job?.company).filter(Boolean)
+    ]).size;
+    const averageCGPA = averageNumber(studentDocs.map((student) => Number(student?.cgpa)));
+    const avgPackage = averageNumber(placements.map((placement) => parsePackageValue(placement?.ctc)));
+    const placementRate = totalStudents ? Number(((completedPlacements / totalStudents) * 100).toFixed(1)) : 0;
+
     const stats = {
-      totalUsers: 250,
-      totalStudents: 180,
-      activeJobs: 12,
-      completedPlacements: 45,
-      pendingInterviews: 8,
-      companiesRegistered: 15,
-      averageCGPA: 7.5,
-      placementRate: 92,
-      avgPackage: 22,
+      totalUsers,
+      totalStudents,
+      activeJobs,
+      completedPlacements,
+      pendingInterviews,
+      companiesRegistered,
+      averageCGPA,
+      placementRate,
+      avgPackage,
       systemStatus: 'Healthy',
       securityScore: 98,
-      performances: 85
+      performances: Math.min(100, Math.round((placementRate + averageCGPA * 10) / 2))
     };
 
     res.json({ success: true, data: stats });
@@ -222,19 +309,40 @@ export const getAdminStats = (req, res) => {
   }
 };
 
-export const getHRStats = (req, res) => {
+export const getHRStats = async (req, res) => {
   try {
+    const [activeJobPostings, applications, interviews, placements, requisitions, students] = await Promise.all([
+      Job.countDocuments({ status: 'active' }),
+      Application.find().select('status job').populate('job', 'company').lean(),
+      Interview.find().select('scheduledDate result').sort({ scheduledDate: 1 }).lean(),
+      PlacementResult.find().select('status companyName').lean(),
+      JobRequisition.find().select('status').lean(),
+      Student.countDocuments()
+    ]);
+
+    const applicationsReceived = applications.length;
+    const interviewsScheduled = interviews.length;
+    const offersExtended = countByStatuses(placements, ['offered', 'accepted']);
+    const acceptanceRate = offersExtended ? Number(((countByStatuses(placements, ['accepted']) / offersExtended) * 100).toFixed(1)) : 0;
+    const pendingApprovals = requisitions.filter((requisition) => ['open', 'in review', 'on hold'].includes(normalizeStatus(requisition?.status))).length;
+    const talentPoolSize = students;
+    const nextInterviewDate = interviews.find((interview) => interview?.scheduledDate)?.scheduledDate || null;
+    const companies = new Set([
+      ...applications.map((application) => application?.job?.company).filter(Boolean),
+      ...placements.map((placement) => placement?.companyName).filter(Boolean)
+    ]).size;
+
     const stats = {
-      activeJobPostings: 12,
-      applicationsReceived: 450,
-      interviewsScheduled: 25,
-      offersExtended: 8,
-      acceptanceRate: 85,
-      pendingApprovals: 5,
-      talentPoolSize: 120,
-      nextInterviewDate: '2026-02-10',
-      companies: 5,
-      analytics: 8
+      activeJobPostings,
+      applicationsReceived,
+      interviewsScheduled,
+      offersExtended,
+      acceptanceRate,
+      pendingApprovals,
+      talentPoolSize,
+      nextInterviewDate,
+      companies,
+      analytics: applicationsReceived
     };
 
     res.json({ success: true, data: stats });
@@ -315,19 +423,33 @@ export const updateHRSettings = async (req, res) => {
   }
 };
 
-export const getStaffStats = (req, res) => {
+export const getStaffStats = async (req, res) => {
   try {
+    const [totalStudents, verifiedProfiles, resumesPending, interviewsScheduled, studentsPlaced, activeJobs, placements, studentDocs] = await Promise.all([
+      Student.countDocuments(),
+      Student.countDocuments({ cgpa: { $gte: 7 } }),
+      Student.countDocuments({ $or: [{ resumeDraft: null }, { resumeDraft: { $exists: false } }] }),
+      Interview.countDocuments(),
+      PlacementResult.countDocuments({ status: { $in: ['offered', 'accepted'] } }),
+      Job.countDocuments({ status: 'active' }),
+      PlacementResult.find().select('companyName').lean(),
+      Student.find().select('attendance attendancePercentage').lean()
+    ]);
+
+    const averageAttendance = averageNumber(studentDocs.map((student) => Number(student?.attendance || student?.attendancePercentage)));
+    const companies = new Set(placements.map((placement) => placement?.companyName).filter(Boolean)).size;
+
     const stats = {
-      totalStudents: 180,
-      verifiedProfiles: 165,
-      resumesPending: 15,
-      interviewsScheduled: 18,
-      studentsPlaced: 45,
-      averageAttendance: 88,
-      classes: 3,
-      companies: 5,
-      performance: 87,
-      analytics: 92
+      totalStudents,
+      verifiedProfiles,
+      resumesPending,
+      interviewsScheduled,
+      studentsPlaced,
+      averageAttendance,
+      classes: activeJobs,
+      companies,
+      performance: Math.min(100, Math.max(0, Math.round(averageAttendance - resumesPending))),
+      analytics: studentsPlaced
     };
 
     res.json({ success: true, data: stats });
@@ -496,12 +618,37 @@ import PlacementStatistics from '../models/PlacementStatistics.js';
 
 export const getAnalytics = async (req, res) => {
   try {
-    // Get the latest analytics document (by year or createdAt)
-    const analyticsDoc = await PlacementStatistics.findOne({}, {}, { sort: { year: -1, createdAt: -1 } });
-    if (!analyticsDoc) {
-      return res.status(404).json({ success: false, message: 'No analytics data found' });
-    }
-    res.json({ success: true, data: analyticsDoc });
+    const [analyticsDoc, totalStudents, activeJobs, applications, interviews, placements] = await Promise.all([
+      PlacementStatistics.findOne({}, {}, { sort: { year: -1, createdAt: -1 } }).lean(),
+      Student.countDocuments(),
+      Job.countDocuments({ status: 'active' }),
+      Application.find().select('status job createdAt').populate('job', 'company position').lean(),
+      Interview.find().select('scheduledDate result createdAt').lean(),
+      PlacementResult.find().select('status ctc companyName createdAt').lean()
+    ]);
+
+    const completedPlacements = countByStatuses(placements, ['offered', 'accepted']);
+    const placementRate = totalStudents ? Number(((completedPlacements / totalStudents) * 100).toFixed(1)) : 0;
+    const avgPackage = averageNumber(placements.map((placement) => parsePackageValue(placement?.ctc)));
+    const companies = new Set([
+      ...applications.map((application) => application?.job?.company).filter(Boolean),
+      ...placements.map((placement) => placement?.companyName).filter(Boolean)
+    ]).size;
+
+    const analytics = {
+      ...(analyticsDoc || {}),
+      placementRate,
+      averagePackage: analyticsDoc?.averagePackage ?? avgPackage,
+      totalStudentsPlaced: completedPlacements,
+      totalStudents,
+      activeJobs,
+      applicationsReceived: applications.length,
+      interviewsScheduled: interviews.length,
+      companiesRegistered: companies,
+      updatedAt: new Date().toISOString()
+    };
+
+    res.json({ success: true, data: analytics, analytics });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

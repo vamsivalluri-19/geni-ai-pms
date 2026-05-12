@@ -23,141 +23,34 @@ const CompanyCalendar = () => {
   const fetchCompanyEvents = async () => {
     try {
       setLoading(true);
-      // Mock data - replace with actual API call
-      const mockEvents = [
-        {
-          id: 1,
-          title: 'Google Campus Drive',
-          company: 'Google',
-          date: new Date(2026, 1, 10, 10, 0),
-          endDate: new Date(2026, 1, 10, 17, 0),
-          type: 'Campus Drive',
-          location: 'Main Auditorium',
-          eligibility: 'CGPA > 7.5',
-          status: 'Upcoming',
-          registrationDeadline: new Date(2026, 1, 8),
-          description: 'Google is hiring for Software Engineering roles',
-          slots: 200,
-          registered: 145,
-          color: 'blue'
-        },
-        {
-          id: 2,
-          title: 'Microsoft Pre-Placement Talk',
-          company: 'Microsoft',
-          date: new Date(2026, 1, 12, 14, 0),
-          endDate: new Date(2026, 1, 12, 16, 0),
-          type: 'Pre-Placement Talk',
-          location: 'Seminar Hall 1',
-          eligibility: 'All Final Year',
-          status: 'Upcoming',
-          registrationDeadline: new Date(2026, 1, 11),
-          description: 'Learn about opportunities at Microsoft',
-          slots: 150,
-          registered: 120,
-          color: 'green'
-        },
-        {
-          id: 3,
-          title: 'Amazon Online Assessment',
-          company: 'Amazon',
-          date: new Date(2026, 1, 15, 9, 0),
-          endDate: new Date(2026, 1, 15, 12, 0),
-          type: 'Online Test',
-          location: 'Online',
-          eligibility: 'CGPA > 7.0',
-          status: 'Registration Open',
-          registrationDeadline: new Date(2026, 1, 13),
-          description: 'Online coding assessment for SDE positions',
-          slots: 300,
-          registered: 267,
-          color: 'orange'
-        },
-        {
-          id: 4,
-          title: 'TCS Mass Recruitment',
-          company: 'TCS',
-          date: new Date(2026, 1, 18, 8, 0),
-          endDate: new Date(2026, 1, 18, 18, 0),
-          type: 'Campus Drive',
-          location: 'Main Campus',
-          eligibility: 'CGPA > 6.0',
-          status: 'Upcoming',
-          registrationDeadline: new Date(2026, 1, 16),
-          description: 'TCS National Qualifier Test and Interviews',
-          slots: 500,
-          registered: 423,
-          color: 'purple'
-        },
-        {
-          id: 5,
-          title: 'Infosys Technical Interview',
-          company: 'Infosys',
-          date: new Date(2026, 1, 20, 10, 0),
-          endDate: new Date(2026, 1, 20, 16, 0),
-          type: 'Interview',
-          location: 'Building B, Rooms 201-205',
-          eligibility: 'Selected Candidates',
-          status: 'Scheduled',
-          registrationDeadline: new Date(2026, 1, 19),
-          description: 'Technical round for shortlisted candidates',
-          slots: 50,
-          registered: 50,
-          color: 'indigo'
-        },
-        {
-          id: 6,
-          title: 'Wipro HR Round',
-          company: 'Wipro',
-          date: new Date(2026, 1, 22, 11, 0),
-          endDate: new Date(2026, 1, 22, 15, 0),
-          type: 'Interview',
-          location: 'Conference Room 3',
-          eligibility: 'Cleared Tech Round',
-          status: 'Scheduled',
-          registrationDeadline: new Date(2026, 1, 21),
-          description: 'Final HR interview round',
-          slots: 30,
-          registered: 28,
-          color: 'red'
-        },
-        {
-          id: 7,
-          title: 'Accenture Assessment Day',
-          company: 'Accenture',
-          date: new Date(2026, 1, 25, 9, 0),
-          endDate: new Date(2026, 1, 25, 17, 0),
-          type: 'Campus Drive',
-          location: 'Computer Lab 1 & 2',
-          eligibility: 'CGPA > 6.5',
-          status: 'Registration Open',
-          registrationDeadline: new Date(2026, 1, 23),
-          description: 'Complete assessment including aptitude and coding',
-          slots: 250,
-          registered: 198,
-          color: 'pink'
-        },
-        {
-          id: 8,
-          title: 'Cognizant GenC Next',
-          company: 'Cognizant',
-          date: new Date(2026, 1, 28, 10, 0),
-          endDate: new Date(2026, 1, 28, 16, 0),
-          type: 'Campus Drive',
-          location: 'Main Auditorium',
-          eligibility: 'All Branches, CGPA > 6.0',
-          status: 'Upcoming',
-          registrationDeadline: new Date(2026, 1, 26),
-          description: 'GenC Next program for fresher recruitment',
-          slots: 400,
-          registered: 312,
-          color: 'yellow'
-        }
-      ];
-      setEvents(mockEvents);
-      setFilteredEvents(mockEvents);
+      // Fetch jobs from backend
+      const res = await api.get('/jobs');
+      const jobs = res.data?.jobs || res.data || [];
+      // Map jobs to calendar events
+      const jobEvents = jobs
+        .filter(job => job.applicationDeadline)
+        .map(job => ({
+          id: job._id || job.id,
+          title: job.position || job.title || 'Job',
+          company: job.company || '',
+          date: new Date(job.applicationDeadline),
+          endDate: new Date(job.applicationDeadline),
+          type: 'Job Posting',
+          location: job.location || '',
+          eligibility: job.eligibility || '',
+          status: job.status || 'Upcoming',
+          registrationDeadline: job.applicationDeadline ? new Date(job.applicationDeadline) : null,
+          description: job.description || '',
+          slots: job.slots || 0,
+          registered: job.applications || 0,
+          color: 'blue',
+        }));
+      setEvents(jobEvents);
+      setFilteredEvents(jobEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
+      setEvents([]);
+      setFilteredEvents([]);
     } finally {
       setLoading(false);
     }
@@ -319,7 +212,11 @@ const CompanyCalendar = () => {
 
                 <div className="mt-4 flex items-center gap-2 text-sm">
                   <CheckCircle size={16} className="text-green-600" />
-                  <span className="text-gray-700 dark:text-gray-300">Eligibility: <span className="font-semibold">{event.eligibility}</span></span>
+                  <span className="text-gray-700 dark:text-gray-300">Eligibility: <span className="font-semibold">{
+                    typeof event.eligibility === 'object' && event.eligibility !== null
+                      ? `Min CGPA: ${event.eligibility.minCGPA ?? '-'} | Branches: ${Array.isArray(event.eligibility.allowedBranches) ? event.eligibility.allowedBranches.join(', ') : '-'}`
+                      : (event.eligibility || 'N/A')
+                  }</span></span>
                 </div>
                 <div className="mt-2 flex items-center gap-2 text-sm">
                   <AlertCircle size={16} className="text-orange-600" />

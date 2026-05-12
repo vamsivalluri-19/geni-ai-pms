@@ -5,7 +5,8 @@ import {
   getAllJobs,
   getJobById,
   updateJob,
-  deleteJob
+  deleteJob,
+  cloneJob
 } from '../controllers/jobController.js';
 
 const router = express.Router();
@@ -18,5 +19,8 @@ router.get('/:id', getJobById);
 router.post('/', verifyToken, authorizeRole('admin', 'recruiter', 'hr'), createJob);
 router.put('/:id', verifyToken, authorizeRole('admin', 'recruiter', 'hr'), updateJob);
 router.delete('/:id', verifyToken, authorizeRole('admin', 'recruiter', 'hr'), deleteJob);
+
+// Clone job endpoint
+router.post('/:id/clone', verifyToken, authorizeRole('admin', 'recruiter', 'hr'), cloneJob);
 
 export default router;

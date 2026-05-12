@@ -4,6 +4,19 @@ import User from '../models/User.js';
 import { notifyNewApplication, notifyApplicationStatus } from '../utils/emailService.js';
 import { createNotification } from './notificationController.js';
 
+const applicationPopulateOptions = [
+  {
+    path: 'student',
+    populate: {
+      path: 'user',
+      select: 'name email phone role'
+    }
+  },
+  {
+    path: 'job'
+  }
+];
+
 // Apply for job
 export const applyForJob = async (req, res) => {
   try {
@@ -38,7 +51,7 @@ export const applyForJob = async (req, res) => {
       notes
     });
 
-    await application.populate(['student', 'job']);
+    await application.populate(applicationPopulateOptions);
 
     const studentName = application.student.user?.name || application.student.name || 'Student';
     const studentEmail = application.student.user?.email || application.student.email || 'N/A';
@@ -115,7 +128,7 @@ export const getMyApplications = async (req, res) => {
     }
 
     const applications = await Application.find({ student: student._id })
-      .populate('job')
+      .populate(applicationPopulateOptions)
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -135,7 +148,8 @@ export const getMyApplications = async (req, res) => {
 export const getJobApplications = async (req, res) => {
   try {
     const applications = await Application.find({ job: req.params.jobId })
-      .populate('student');
+      .populate(applicationPopulateOptions)
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -154,8 +168,7 @@ export const getJobApplications = async (req, res) => {
 export const getAllApplications = async (req, res) => {
   try {
     const applications = await Application.find()
-      .populate('student')
-      .populate('job')
+      .populate(applicationPopulateOptions)
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -316,5 +329,22 @@ export const withdrawMyApplication = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+// Bulk update application statuses
+export const bulkUpdateStatus = async (req, res) => {
+  try {
+    const { ids, status } = req.body;
+    if (!Array.isArray(ids) || !status) {
+      return res.status(400).json({ success: false, message: 'Invalid request' });
+    }
+    const result = await Application.updateMany(
+      { _id: { $in: ids } },
+      { $set: { status } }
+    );
+    res.status(200).json({ success: true, message: 'Bulk status update successful', result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

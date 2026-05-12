@@ -14,10 +14,12 @@ import StudentInterviews from "./pages/student/Interviews";
 
 // Staff
 import StaffDashboard from "./pages/staff/Dashboard";
+import StaffApplicationsPage from "./pages/staff/Applications";
 import StaffInterviews from "./pages/staff/Interviews";
 
 // HR
 import HrDashboard from "./pages/hr/Dashboard";
+import HrApplicationsPage from "./pages/hr/Applications";
 import HrInterviews from "./pages/hr/Interviews";
 import HrJobs from "./pages/hr/Jobs";
 
@@ -89,12 +91,28 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/staff/applications"
+          element={
+            <ProtectedRoute role="staff">
+              <StaffApplicationsPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* HR ROUTES */}
         <Route
           path="/hr"
           element={
-            <ProtectedRoute role="hr">
+            <ProtectedRoute role={["hr", "admin", "staff", "recruiter"]}>
+              <HrDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recruiter"
+          element={
+            <ProtectedRoute role="recruiter">
               <HrDashboard />
             </ProtectedRoute>
           }
@@ -112,6 +130,14 @@ export default function App() {
           element={
             <ProtectedRoute role="hr">
               <HrJobs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hr/applications"
+          element={
+            <ProtectedRoute role={["hr", "admin", "staff", "recruiter"]}>
+              <HrApplicationsPage />
             </ProtectedRoute>
           }
         />

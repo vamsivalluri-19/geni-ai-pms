@@ -11,12 +11,12 @@ import {
 
 const router = express.Router();
 
-router.post('/', verifyToken, authorizeRole('admin', 'recruiter'), scheduleInterview);
+router.post('/', verifyToken, authorizeRole('admin', 'recruiter', 'hr'), scheduleInterview);
 router.get('/', verifyToken, getAllInterviews);
 router.get('/my-interviews', verifyToken, getMyInterviews);
 router.get('/student/:studentId', verifyToken, getMyInterviews);
-router.get('/job/:jobId', verifyToken, authorizeRole('admin', 'recruiter'), getJobInterviews);
-router.put('/:id', verifyToken, authorizeRole('admin', 'recruiter'), updateInterviewResult);
+router.get('/job/:jobId', verifyToken, authorizeRole('admin', 'recruiter', 'hr'), getJobInterviews);
+router.put('/:id', verifyToken, authorizeRole('admin', 'recruiter', 'hr'), updateInterviewResult);
 // router.patch('/:id/meeting', ...) removed
 router.patch('/:id/room', verifyToken, authorizeRole('admin', 'hr', 'staff', 'recruiter'), updateInterviewRoom);
 

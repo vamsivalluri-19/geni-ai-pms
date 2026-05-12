@@ -31,6 +31,7 @@ import otpRoutes from './routes/otp.js';
 
 // 1a. Import Kaggle data service
 import { loadKagglePlacementData } from './utils/kaggleDataService.js';
+import { startApplicationReminderScheduler } from './utils/reminderScheduler.js';
 
 // 2. Initialize configuration
 import fs from 'fs';
@@ -175,6 +176,9 @@ app.use((err, req, res, next) => {
 
 // 9. Start Server
 const PORT = process.env.PORT || 5000;
+
+// Start application reminder scheduler
+startApplicationReminderScheduler();
 
 server.on('error', (error) => {
   if (error?.code === 'EADDRINUSE') {

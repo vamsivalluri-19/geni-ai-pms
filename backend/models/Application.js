@@ -21,7 +21,15 @@ const applicationSchema = new mongoose.Schema({
     default: Date.now
   },
   coverLetter: String,
-  notes: String
+  notes: String,
+  aiScreeningScore: {
+    type: Number,
+    default: null
+  },
+  aiScreeningFeedback: {
+    type: String,
+    default: null
+  }
 }, { timestamps: true });
 
 // Prevent duplicate applications

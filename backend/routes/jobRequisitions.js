@@ -5,10 +5,15 @@ import {
   getAllJobRequisitions,
   getJobRequisitionById,
   updateJobRequisition,
-  deleteJobRequisition
+  deleteJobRequisition,
+  approveJobRequisition,
+  rejectJobRequisition
 } from '../controllers/jobRequisitionController.js';
 
 const router = express.Router();
+// Approval workflow endpoints
+router.post('/:id/approve', verifyToken, authorizeRole('admin', 'hr'), approveJobRequisition);
+router.post('/:id/reject', verifyToken, authorizeRole('admin', 'hr'), rejectJobRequisition);
 
 // Public routes
 router.get('/', getAllJobRequisitions);

@@ -19,6 +19,20 @@ const StaffApplications = () => {
     fetchApplications();
   }, []);
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchApplications();
+    }, 10000);
+
+    const onWindowFocus = () => fetchApplications();
+    window.addEventListener('focus', onWindowFocus);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', onWindowFocus);
+    };
+  }, []);
+
   const fetchDetailedApplication = async (studentId) => {
     setLoadingDetailedApplication(true);
     try {

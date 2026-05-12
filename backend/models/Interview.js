@@ -22,6 +22,16 @@ const interviewSchema = new mongoose.Schema({
     required: true
   },
   scheduledDate: Date,
+    date: String,
+    startTime: String,
+    endTime: String,
+    location: String,
+    type: {
+      type: String,
+      enum: ['Virtual', 'In-person'],
+      default: 'Virtual'
+    },
+    interviewer: String,
   // meetingLink removed; will use roomId for WebRTC
     roomId: {
       type: String,
@@ -33,6 +43,9 @@ const interviewSchema = new mongoose.Schema({
     default: 'pending'
   },
   feedback: String,
+  notes: String,
+  recordingUrl: String,
+  panel: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   createdAt: {
     type: Date,
     default: Date.now
