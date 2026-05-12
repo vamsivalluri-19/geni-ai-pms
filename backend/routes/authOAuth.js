@@ -38,6 +38,19 @@ const getBackendBaseUrl = (req) => {
   return `${protocol}://${host}`;
 };
 
+const getGoogleRedirectUri = (req) => {
+  const configuredRedirectUri = normalizeUrl(
+    process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_CALLBACK_URL
+  );
+
+  if (configuredRedirectUri) {
+    return configuredRedirectUri;
+  }
+
+  const backendBaseUrl = getBackendBaseUrl(req);
+  return `${backendBaseUrl}/api/auth/google/callback`;
+};
+
 const configuredFrontendBaseUrl = normalizeUrl(process.env.FRONTEND_URL) || 'http://localhost:5173';
 
 const getFrontendBaseUrl = (req, state = null) => {
@@ -203,8 +216,7 @@ router.get('/google', (req, res) => {
   const clientId = requireEnv('GOOGLE_CLIENT_ID', res);
   if (!clientId) return;
 
-  const backendBaseUrl = getBackendBaseUrl(req);
-  const redirectUri = encodeURIComponent(`${backendBaseUrl}/api/auth/google/callback`);
+  const redirectUri = encodeURIComponent(getGoogleRedirectUri(req));
   const scope = encodeURIComponent('profile email');
   const frontendBaseUrl = getFrontendBaseUrl(req);
   const state = encodeOAuthState({
@@ -230,8 +242,7 @@ router.get('/google/callback', (req, res) => {
         return redirectWithOauthError(res, frontendBaseUrl, frontendPath, 'missing_code', 'No authorization code received from Google');
       }
 
-      const backendBaseUrl = getBackendBaseUrl(req);
-      const redirectUri = `${backendBaseUrl}/api/auth/google/callback`;
+      const redirectUri = getGoogleRedirectUri(req);
 
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',

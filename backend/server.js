@@ -142,6 +142,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/oauth', otpRoutes); // OTP verification endpoint
 app.use('/api/auth', authOAuthRoutes); // Real OAuth GET endpoints for frontend redirects
+app.use('/api/oauth', authOAuthRoutes); // Compatibility alias for legacy OAuth callback URLs
 app.use('/api/students', studentRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/job-requisitions', jobRequisitionsRoutes);
