@@ -13,12 +13,15 @@ import {
 
 const router = express.Router();
 
-router.post('/', verifyToken, applyForJob);
-router.get('/', verifyToken, authorizeRole('admin', 'hr', 'recruiter', 'staff'), getAllApplications);
+// More specific routes must come BEFORE catch-all routes
 router.get('/my-applications', verifyToken, getMyApplications);
 router.put('/my-applications/:id', verifyToken, updateMyApplication);
 router.patch('/my-applications/:id/withdraw', verifyToken, withdrawMyApplication);
 router.get('/job/:jobId', verifyToken, authorizeRole('admin', 'recruiter', 'hr', 'staff'), getJobApplications);
+
+// More general routes come after
+router.post('/', verifyToken, applyForJob);
+router.get('/', verifyToken, authorizeRole('admin', 'hr', 'recruiter', 'staff'), getAllApplications);
 router.put('/:id', verifyToken, authorizeRole('admin', 'recruiter', 'hr', 'staff'), updateApplicationStatus);
 
 // Bulk status update

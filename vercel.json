@@ -1,24 +1,9 @@
 {
-  "experimentalServices": {
-    "frontend": {
-      "routePrefix": "/",
-      "framework": "vite",
-      "rootDirectory": "frontend",
-      "buildCommand": "npm run build",
-      "outputDirectory": "dist"
-    },
-    "backend": {
-      "routePrefix": "/_/backend",
-      "entrypoint": "server.js",
-      "rootDirectory": "backend"
-    }
-  },
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "framework": "vite",
   "env": {
-    "VITE_API_URL": {
-      "value": "/_/backend/api"
-    },
-    "VITE_BACKEND_URL": {
-      "value": "/_/backend"
-    }
+    "VITE_API_URL": "https://geni-ai-pms.onrender.com/api",
+    "VITE_BACKEND_URL": "https://geni-ai-pms.onrender.com"
   }
 }

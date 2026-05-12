@@ -1203,8 +1203,15 @@ const StudentDashboardPro = () => {
           id: updatedStudent?.rollNumber || updatedStudent?.studentId || updatedStudent?.id || updatedStudent?._id || updatedStudent?.user?._id || authUserId || '',
           name: updatedStudent?.name || updatedStudent?.user?.name || '',
           email: updatedStudent?.email || updatedStudent?.user?.email || '',
-          phone: getStudentPhone(updatedStudent)
+          phone: getStudentPhone(updatedStudent),
+          // Ensure resume and draft content are reflected locally so candidate/HR views update correctly
+          resume: updatedStudent?.resume || updatedStudent?.resumeUrl || studentData?.resume || '',
+          resumeDraft: normalizeResumeDraft(updatedStudent?.resumeDraft || studentData?.resumeDraft || {}),
+          resumeTemplateId: updatedStudent?.resumeTemplateId || selectedResumeTemplate?.id || null,
+          avatar: updatedStudent?.avatar || updatedStudent?.user?.avatar || studentData?.avatar || ''
         });
+        // If we changed the selected template, keep local selection in sync
+        if (updatedStudent?.resumeTemplateId) setSelectedResumeTemplate(resumeTemplates.find(t => t.id === updatedStudent.resumeTemplateId) || null);
       }
       setAnalyzingResumeDraft(true);
       let draftAnalysis = null;
@@ -1240,34 +1247,153 @@ const StudentDashboardPro = () => {
         'You are a resume proofreader and formatter.',
         'Correct spelling, capitalization, grammar, and wording while preserving meaning.',
         'Normalize the resume into a professional format and keep the same structure.',
-        'Return ONLY valid JSON with this schema:',
+        'Return ONLY valid JSON (no markdown, no code fences) with this schema:',
         '{"fullName":"","title":"","summary":"","skills":[""],"experience":[{"role":"","company":"","period":"","details":""}],"projects":[{"name":"","details":"","link":""}],"education":[{"degree":"","school":"","year":""}],"certifications":[{"name":"","issuer":"","year":"","credentialId":""}],"awards":[{"title":"","issuer":"","year":"","details":""}],"links":{"email":"","phone":"","github":"","linkedin":"","website":""}}',
+        'Start with { and end with }. No additional text.',
         'Draft JSON:',
         JSON.stringify(resumeDraft, null, 2)
       ].join('\n');
 
       const response = await aiAPI.chat({ message: prompt, history: [] });
-      const replyText = response?.data?.reply || '';
-      const jsonMatch = replyText.match(/\{[\s\S]*\}/);
+      let replyText = String(response?.data?.reply || response?.data?.result || '').trim();
 
-      if (!jsonMatch) {
+      // Smart JSON extraction with string-aware brace matching
+      let jsonText = null;
+      
+      // 1) Look for fenced code block
+      const fencedMatch = replyText.match(/```(?:json\s*)?\n?([\s\S]*?)\n?```/i);
+      if (fencedMatch && fencedMatch[1]) {
+        jsonText = fencedMatch[1].trim();
+      }
+      
+      // 2) Smart brace matching that respects strings
+      if (!jsonText) {
+        const braceStart = replyText.indexOf('{');
+        if (braceStart !== -1) {
+          let depth = 0;
+          let inString = false;
+          let escapeNext = false;
+          let braceEnd = -1;
+          
+          for (let i = braceStart; i < replyText.length; i++) {
+            const char = replyText[i];
+            if (escapeNext) {
+              escapeNext = false;
+              continue;
+            }
+            if (char === '\\' && inString) {
+              escapeNext = true;
+              continue;
+            }
+            if (char === '"') {
+              inString = !inString;
+              continue;
+            }
+            if (!inString) {
+              if (char === '{') depth++;
+              else if (char === '}') {
+                depth--;
+                if (depth === 0) {
+                  braceEnd = i;
+                  break;
+                }
+              }
+            }
+          }
+          if (braceEnd > braceStart) {
+            jsonText = replyText.slice(braceStart, braceEnd + 1);
+          }
+        }
+      }
+      
+      // 3) Fallback: find braces and try repair
+      if (!jsonText && replyText.includes('{')) {
+        const start = replyText.indexOf('{');
+        let end = replyText.lastIndexOf('}');
+        if (end <= start) {
+          end = replyText.length - 1;
+          let depth = 0;
+          for (const c of replyText.substring(start)) {
+            if (c === '{') depth++;
+            else if (c === '}') depth--;
+          }
+          jsonText = replyText.substring(start) + '}' .repeat(Math.max(0, depth));
+        } else {
+          jsonText = replyText.substring(start, end + 1);
+        }
+      }
+
+      // Parse with automatic repair attempts
+      let correctedDraft = null;
+      if (jsonText) {
+        try {
+          correctedDraft = JSON.parse(jsonText);
+        } catch (e) {
+          // Try repair with missing braces
+          let depth = 0;
+          for (const c of jsonText) {
+            if (c === '{') depth++;
+            else if (c === '}') depth--;
+          }
+          if (depth > 0) {
+            try {
+              correctedDraft = JSON.parse(jsonText + '}' .repeat(depth));
+            } catch {
+              // Repair failed, will throw below
+            }
+          }
+        }
+      }
+
+      if (!correctedDraft) {
+        console.error('Failed to extract JSON from auto-correct response');
         throw new Error('No structured correction returned');
       }
 
-      const correctedDraft = JSON.parse(jsonMatch[0]);
       const normalizedDraft = normalizeResumeDraft({
         ...resumeDraft,
         ...correctedDraft,
-        skills: Array.isArray(correctedDraft.skills) ? correctedDraft.skills : resumeDraft.skills,
+        skills: Array.isArray(correctedDraft.skills) ? correctedDraft.skills.filter(Boolean) : resumeDraft.skills,
         links: { ...resumeDraft.links, ...(correctedDraft.links || {}) }
       });
 
+      // Update UI immediately with corrected draft
       setResumeDraft(normalizedDraft);
-      setSuccessMessage('Resume auto-corrected and formatted successfully.');
+
+      // Persist corrected draft to backend so candidate/HR see changes
+      try {
+        const saveResp = await studentAPI.updateProfile({
+          resumeDraft: normalizedDraft,
+          resumeTemplateId: selectedResumeTemplate?.id || null
+        });
+        if (saveResp?.data?.student) {
+          const updatedStudent = saveResp.data.student;
+          setStudentData({
+            ...updatedStudent,
+            id: updatedStudent?.rollNumber || updatedStudent?.studentId || updatedStudent?.id || updatedStudent?._id || updatedStudent?.user?._id || authUserId || '',
+            name: updatedStudent?.name || updatedStudent?.user?.name || '',
+            email: updatedStudent?.email || updatedStudent?.user?.email || '',
+            phone: getStudentPhone(updatedStudent),
+            resume: updatedStudent?.resume || updatedStudent?.resumeUrl || studentData?.resume || '',
+            resumeDraft: normalizeResumeDraft(updatedStudent?.resumeDraft || normalizedDraft),
+            resumeTemplateId: updatedStudent?.resumeTemplateId || selectedResumeTemplate?.id || null,
+            avatar: updatedStudent?.avatar || updatedStudent?.user?.avatar || studentData?.avatar || ''
+          });
+          if (updatedStudent?.resumeTemplateId) {
+            setSelectedResumeTemplate(resumeTemplates.find(t => t.id === updatedStudent.resumeTemplateId) || null);
+          }
+        }
+      } catch (saveError) {
+        console.warn('Failed to persist corrected resume draft to backend:', saveError);
+        // Still show success to user since UI was updated
+      }
+
+      setSuccessMessage('Resume auto-corrected and formatted successfully! ✓');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error auto-correcting resume draft:', error);
-      alert('Auto-correct could not finish right now. Please try again.');
+      setSuccessMessage('');
+      alert(`Auto-correct encountered an issue: ${error.message || 'Please try again.'}`);
     } finally {
       setAutoCorrectingResumeDraft(false);
     }
@@ -5528,7 +5654,7 @@ END:VCALENDAR`;
         <section className="space-y-6">
           <div className="flex items-center justify-between border-t pt-10 border-white/5">
             <h2 className={`text-3xl font-black ${colors.text.primary}`}>Certifications</h2>
-            <button className="px-4 py-2 bg-emerald-600 rounded-lg font-bold text-xs uppercase hover:bg-emerald-500 flex items-center gap-2 text-white transition-colors">
+            <button onClick={() => setCurrentView('certifications')} className="px-4 py-2 bg-emerald-600 rounded-lg font-bold text-xs uppercase hover:bg-emerald-500 flex items-center gap-2 text-white transition-colors">
               <Plus size={16} /> Add Certificate
             </button>
           </div>
@@ -5561,10 +5687,10 @@ END:VCALENDAR`;
                   </div>
 
                   <div className="flex gap-3">
-                    <button className="flex-1 py-3 bg-emerald-600 rounded-xl font-bold text-xs uppercase hover:bg-emerald-500 flex items-center justify-center gap-2 text-white transition-colors">
+                    <button onClick={() => cert.url && window.open(cert.url, '_blank')} className="flex-1 py-3 bg-emerald-600 rounded-xl font-bold text-xs uppercase hover:bg-emerald-500 flex items-center justify-center gap-2 text-white transition-colors">
                       <ExternalLink size={16} /> View Credential
                     </button>
-                    <button className={`w-14 py-3 ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'} rounded-xl font-bold flex items-center justify-center text-red-400 transition-colors`}>
+                    <button onClick={() => setUserCertifications(userCertifications.filter((_, i) => i !== idx))} className={`w-14 py-3 ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-gray-100 hover:bg-gray-200'} rounded-xl font-bold flex items-center justify-center text-red-400 transition-colors`}>
                       <Trash2 size={18} />
                     </button>
                   </div>

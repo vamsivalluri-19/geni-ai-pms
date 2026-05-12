@@ -67,7 +67,7 @@ mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/placement_d
 
 ---
 
-## ✅ Vercel Deployment Steps
+## ✅ Vercel Deployment Steps (Frontend Only)
 
 ### Step 1: Create Vercel Account
 - [ ] Went to: https://vercel.com
@@ -80,109 +80,66 @@ mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/placement_d
 - [ ] Pasted/selected: `https://github.com/vamsivalluri-19/geni-ai-pms`
 - [ ] Clicked "Import"
 
-### Step 3: Configure Project
-- [ ] Project name: `geni-ai-pms`
-- [ ] Root directory: `.` (root of monorepo)
-- [ ] Clicked "Continue"
+### Step 3: Configure Project Settings
+- [ ] **Project Name**: `placement-management-system`
+- [ ] **Root Directory**: `frontend` ✓ (IMPORTANT!)
+- [ ] **Framework**: Vite
+- [ ] **Build Command**: `npm run build`
+- [ ] **Output Directory**: `dist`
+- [ ] **Install Command**: `npm install`
 
-### Step 4: Initial Deployment (will fail - OK!)
-- [ ] Clicked "Deploy" (without environment variables)
-- [ ] Deployment failed (this is expected)
+### Step 4: Add Environment Variables
 
-### Step 5: Add Environment Variables
-
-#### Frontend Variables
-- [ ] `VITE_API_URL` = `/_/backend/api`
-- [ ] `VITE_BACKEND_URL` = `/_/backend`
-- [ ] `VITE_APP_NAME` = `Gen-AI Placement Management System`
-- [ ] `VITE_VERSION` = `1.0.0`
-
-#### Backend: Database
-- [ ] `MONGO_URI` = [Your MongoDB connection string]
-- [ ] `MONGODB_URI` = [Same as MONGO_URI]
-
-#### Backend: Security
-- [ ] `JWT_SECRET` = [32+ character random string]
-- [ ] `NODE_ENV` = `production`
-
-#### Backend: Google OAuth
-- [ ] `GOOGLE_CLIENT_ID` = [From Google Cloud Console]
-- [ ] `GOOGLE_CLIENT_SECRET` = [From Google Cloud Console]
-- [ ] `GOOGLE_CALLBACK_URL` = `https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback`
-
-#### Backend: Gemini AI
-- [ ] `GEMINI_API_KEY` = [From Google Generative AI]
-
-#### Backend: Email
-- [ ] `EMAIL_USER` = [Your Gmail address]
-- [ ] `EMAIL_PASSWORD` = [Gmail app password]
-- [ ] `SMTP_HOST` = `smtp.gmail.com`
-- [ ] `SMTP_PORT` = `587`
-
-#### Backend: Frontend URLs
-- [ ] `FRONTEND_URL` = `https://geni-ai-pms.vercel.app`
-- [ ] `FRONTEND_URLS` = `https://geni-ai-pms.vercel.app`
+#### Frontend Variables (Production & Preview)
+- [ ] `VITE_API_URL` = `https://geni-ai-pms.onrender.com/api`
+- [ ] `VITE_BACKEND_URL` = `https://geni-ai-pms.onrender.com`
+- [ ] `VITE_APP_NAME` = `Gen-AI Placement Management System` (Optional)
+- [ ] `VITE_VERSION` = `1.0.0` (Optional)
 
 **For each variable:**
 - [ ] Set Environment: **Production and Preview**
 - [ ] Clicked "Save"
 
-### Step 6: Redeploy
-- [ ] Went to "Deployments"
-- [ ] Found failed deployment
-- [ ] Clicked "Redeploy"
-- [ ] Confirmed "Redeploy"
-- [ ] Waited 3-5 minutes for new deployment
-
-### Step 7: Verify Deployment Success
-- [ ] Frontend build: ✅ Success
-- [ ] Backend build: ✅ Success
+### Step 5: Deploy
+- [ ] Clicked "Deploy"
+- [ ] Waited 2-3 minutes for build to complete
 - [ ] Status: ✅ Ready
-- [ ] Live URL: `https://geni-ai-pms.vercel.app`
+
+### Step 6: Verify Deployment Success
+- [ ] Frontend build: ✅ Success
+- [ ] Status: ✅ Ready
+- [ ] Live URL: `https://[your-project-name].vercel.app`
 
 ---
 
 ## 🧪 Post-Deployment Testing
 
 ### Frontend Testing
-- [ ] App loads: `https://geni-ai-pms.vercel.app`
+- [ ] App loads: `https://[your-project-name].vercel.app`
 - [ ] Login page visible
-- [ ] No red errors in console (F12)
-- [ ] Network tab shows `/_/backend` requests
+- [ ] No errors in browser console (F12)
+- [ ] API calls going to: `https://geni-ai-pms.onrender.com/api`
 
-### Backend Testing
-- [ ] Health check works: `https://geni-ai-pms.vercel.app/_/backend/api/health`
-- [ ] Response: `{"status":"Backend is running!","ai_status":"Connected to Gemini"}`
-
-### Feature Testing
-- [ ] Sign up with email works
-- [ ] Login works
-- [ ] Verification email received
-- [ ] Google OAuth sign in works
-- [ ] Dashboard loads after login
-- [ ] Database operations work
-- [ ] No API errors
+### Backend Connectivity
+- [ ] Can login successfully
+- [ ] Can fetch data from backend
+- [ ] Email notifications working
+- [ ] OAuth login working (if configured)
 
 ---
 
 ## 📊 Environment Variables Summary
 
-| Variable | Value | Type |
-|----------|-------|------|
-| `VITE_API_URL` | `/_/backend/api` | Frontend |
-| `VITE_BACKEND_URL` | `/_/backend` | Frontend |
-| `VITE_APP_NAME` | `Gen-AI Placement System` | Frontend |
-| `VITE_VERSION` | `1.0.0` | Frontend |
-| `MONGO_URI` | MongoDB connection string | Backend |
-| `JWT_SECRET` | 32+ char random string | Backend |
-| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | Backend |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | Backend |
-| `GOOGLE_CALLBACK_URL` | `https://geni-ai-pms.vercel.app/...` | Backend |
-| `GEMINI_API_KEY` | Google Generative AI key | Backend |
-| `EMAIL_USER` | Gmail address | Backend |
-| `EMAIL_PASSWORD` | Gmail app password | Backend |
-| `NODE_ENV` | `production` | Backend |
-| `FRONTEND_URL` | `https://geni-ai-pms.vercel.app` | Backend |
+**Frontend Variables (Set in Vercel):**
+
+| Variable | Value | Environment |
+|----------|-------|-------------|
+| `VITE_API_URL` | `https://geni-ai-pms.onrender.com/api` | Production & Preview |
+| `VITE_BACKEND_URL` | `https://geni-ai-pms.onrender.com` | Production & Preview |
+| `VITE_APP_NAME` | `Gen-AI Placement System` | Production & Preview (Optional) |
+| `VITE_VERSION` | `1.0.0` | Production & Preview (Optional) |
+
+**Note:** Backend is running on Render.com separately - `https://geni-ai-pms.onrender.com`
 
 ---
 
@@ -190,12 +147,11 @@ mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/placement_d
 
 | Issue | Quick Fix |
 |-------|-----------|
-| Backend build fails | Check all environment variables are set |
-| Frontend can't call API | Verify `VITE_BACKEND_URL` = `/_/backend` |
-| Google OAuth fails | Update redirect URI in Google Cloud Console |
-| Email not sending | Generate new Gmail app password |
-| Database connection fails | Test MongoDB connection string with Compass |
-| 502 Bad Gateway | Check backend logs, verify MongoDB connected |
+| Frontend can't connect to API | Verify `VITE_BACKEND_URL` = `https://geni-ai-pms.onrender.com` in Vercel |
+| Google OAuth fails | Update OAuth redirect URI in Google Cloud Console to include Vercel domain |
+| Email not sending | Ensure backend is running on Render and email service is configured |
+| Login fails | Check that Render backend is accessible from Vercel frontend |
+| Build fails | Ensure root directory is set to `frontend` (not root) |
 
 ---
 
@@ -227,13 +183,14 @@ git push origin main
 ## 📱 Share Your App
 
 ### Live URLs
-- **Frontend**: `https://geni-ai-pms.vercel.app`
-- **Backend**: `https://geni-ai-pms.vercel.app/_/backend`
-- **API Docs**: `https://geni-ai-pms.vercel.app/_/backend/api/health`
+- **Frontend**: `https://[your-project-name].vercel.app`
+- **Backend API**: `https://geni-ai-pms.onrender.com/api`
+- **Backend URL**: `https://geni-ai-pms.onrender.com`
 
 ### Sharing with Users
-- Send frontend URL: `https://geni-ai-pms.vercel.app`
+- Send frontend URL: `https://[your-project-name].vercel.app`
 - Users can sign up and use the application
+- Backend must remain running on Render for full functionality
 
 ---
 
