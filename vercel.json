@@ -1,0 +1,24 @@
+{
+  "experimentalServices": {
+    "frontend": {
+      "routePrefix": "/",
+      "framework": "vite",
+      "rootDirectory": "frontend",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist"
+    },
+    "backend": {
+      "routePrefix": "/_/backend",
+      "entrypoint": "server.js",
+      "rootDirectory": "backend"
+    }
+  },
+  "env": {
+    "VITE_API_URL": {
+      "value": "/_/backend/api"
+    },
+    "VITE_BACKEND_URL": {
+      "value": "/_/backend"
+    }
+  }
+}
