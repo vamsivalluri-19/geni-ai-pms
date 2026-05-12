@@ -38,12 +38,29 @@ const getBackendBaseUrl = (req) => {
   return `${protocol}://${host}`;
 };
 
+const isPlaceholderHost = (hostname) => {
+  const value = String(hostname || '').toLowerCase();
+  return value === 'your-backend.onrender.com' || value === 'your-backend-domain' || value === 'example.com';
+};
+
+const isUsableRedirectUri = (uri) => {
+  if (!uri) return false;
+  try {
+    const parsed = new URL(uri);
+    if (!/^https?:$/i.test(parsed.protocol)) return false;
+    if (isPlaceholderHost(parsed.hostname)) return false;
+    return true;
+  } catch (_error) {
+    return false;
+  }
+};
+
 const getGoogleRedirectUri = (req) => {
   const configuredRedirectUri = normalizeUrl(
     process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_CALLBACK_URL
   );
 
-  if (configuredRedirectUri) {
+  if (isUsableRedirectUri(configuredRedirectUri)) {
     return configuredRedirectUri;
   }
 
