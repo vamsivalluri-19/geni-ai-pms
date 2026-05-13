@@ -117,20 +117,20 @@ NODE_ENV=production
 |----------|-------|----------|-------|
 | `GOOGLE_CLIENT_ID` | Your Google Client ID | ✅ YES | From Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | Your Google Client Secret | ✅ YES | Keep this SECRET! |
-| `GOOGLE_CALLBACK_URL` | `https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback` | ✅ YES | Must match Google OAuth settings |
+| `GOOGLE_CALLBACK_URL` | `https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback` | ✅ YES | Must match Google OAuth settings |
 
 **Example Values:**
 ```
 GOOGLE_CLIENT_ID=123456789-abc123def456ghi789.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-abc123def456ghi789jkl012
-GOOGLE_CALLBACK_URL=https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback
+GOOGLE_CALLBACK_URL=https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback
 ```
 
 **How to Get:**
 1. Go to: https://console.cloud.google.com
 2. Create project → Enable Google+ API
 3. Credentials → OAuth 2.0 Client ID (Web Application)
-4. Add authorized redirect URI: `https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback`
+4. Add authorized redirect URI: `https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback`
 5. Copy Client ID and Client Secret
 
 #### 4. AI / Gemini (1 variable)
@@ -289,7 +289,7 @@ Click "Add New" for each:
     Environment: Production, Preview → Save
     ⚠️ SENSITIVE - Mark as Secret
 
-11. GOOGLE_CALLBACK_URL = https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback
+11. GOOGLE_CALLBACK_URL = https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback
     Environment: Production, Preview → Save
 ```
 
@@ -376,7 +376,7 @@ JWT_SECRET=your-dev-secret-key-minimum-32-chars
 NODE_ENV=development
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_CALLBACK_URL=http://localhost:5000/api/oauth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
 GEMINI_API_KEY=your-gemini-api-key
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASSWORD=your-app-password

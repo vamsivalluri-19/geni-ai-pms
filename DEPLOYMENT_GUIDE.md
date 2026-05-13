@@ -46,7 +46,7 @@
    - `FRONTEND_URL`: Your Vercel frontend URL (e.g., https://your-app.vercel.app)
    - `GOOGLE_CLIENT_ID`: From Google Cloud Console
    - `GOOGLE_CLIENT_SECRET`: From Google Cloud Console
-   - `GOOGLE_CALLBACK_URL`: `https://your-app.onrender.com/api/oauth/google/callback`
+   - `GOOGLE_CALLBACK_URL`: `https://your-app.onrender.com/api/auth/google/callback`
    - `GEMINI_API_KEY`: From Google AI Studio
    - `EMAIL_USER`: Your email for notifications
    - `EMAIL_PASSWORD`: Gmail app password
@@ -138,7 +138,7 @@ JWT_SECRET=your-secret-key
 FRONTEND_URL=https://your-app.vercel.app
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=xxx
-GOOGLE_CALLBACK_URL=https://backend.onrender.com/api/oauth/google/callback
+GOOGLE_CALLBACK_URL=https://backend.onrender.com/api/auth/google/callback
 GEMINI_API_KEY=xxx
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASSWORD=app-password

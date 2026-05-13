@@ -17,7 +17,7 @@
 - [ ] `FRONTEND_URL` - Vercel frontend URL (to be updated after deployment)
 - [ ] `GOOGLE_CLIENT_ID` - From Google Cloud Console
 - [ ] `GOOGLE_CLIENT_SECRET` - From Google Cloud Console
-- [ ] `GOOGLE_CALLBACK_URL` - Will update to `https://[your-render-url]/api/oauth/google/callback`
+- [ ] `GOOGLE_CALLBACK_URL` - Will update to `https://[your-render-url]/api/auth/google/callback`
 - [ ] `GEMINI_API_KEY` - From Google AI Studio
 - [ ] `EMAIL_USER` - Email for sending notifications
 - [ ] `EMAIL_PASSWORD` - Gmail app password (NOT regular password)

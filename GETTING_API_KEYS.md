@@ -97,9 +97,9 @@ mongodb+srv://placement_user:MyPassword123@cluster0.abc123.mongodb.net/placement
    - Enter: `http://localhost:5173`
 5. **Authorized Redirect URIs:**
    - Click "Add URI"
-   - Enter: `https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback`
+  - Enter: `https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback`
    - Click "Add URI"
-   - Enter: `http://localhost:5000/api/oauth/google/callback`
+  - Enter: `http://localhost:5000/api/auth/google/callback`
 6. Click "Create"
 
 ### Step 6: Copy Credentials

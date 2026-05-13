@@ -44,8 +44,8 @@ mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/placement_d
   - [ ] `https://geni-ai-pms.vercel.app`
   - [ ] `http://localhost:5173`
 - [ ] Authorized redirect URIs added:
-  - [ ] `https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback`
-  - [ ] `http://localhost:5000/api/oauth/google/callback`
+  - [ ] `https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback`
+  - [ ] `http://localhost:5000/api/auth/google/callback`
 - [ ] Client ID copied
 - [ ] Client Secret copied
 

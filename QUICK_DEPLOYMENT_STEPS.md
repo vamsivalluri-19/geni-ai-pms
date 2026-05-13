@@ -104,7 +104,7 @@ VITE_BACKEND_URL: https://your-backend-url.onrender.com
 1. Go to [Google Cloud Console](https://console.cloud.google.com)
 2. Find your OAuth 2.0 credentials
 3. Update Authorized redirect URIs:
-   - Add: `https://your-backend-url.onrender.com/api/oauth/google/callback`
+   - Add: `https://your-backend-url.onrender.com/api/auth/google/callback`
 
 #### 4b: Update Backend CORS
 1. Go to Render dashboard

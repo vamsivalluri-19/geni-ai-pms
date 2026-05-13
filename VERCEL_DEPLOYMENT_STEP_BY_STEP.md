@@ -216,8 +216,8 @@ git log --oneline -5
      - Add: `https://geni-ai-pms.vercel.app`
      - Add: `http://localhost:5173` (local development)
    - **Authorized redirect URIs**:
-     - Add: `https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback`
-     - Add: `http://localhost:5000/api/oauth/google/callback` (local)
+   - Add: `https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback`
+   - Add: `http://localhost:5000/api/auth/google/callback` (local)
    - Click **"Create"**
 
 5. **Copy and save:**
@@ -368,7 +368,7 @@ Value: [From Step 4.1c - Client Secret]
 Example: GOCSPX-abc123def456ghi789
 
 Key: GOOGLE_CALLBACK_URL
-Value: https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback
+Value: https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback
 ```
 
 #### Gemini AI
@@ -570,7 +570,7 @@ git push origin main
 1. Go to Google Cloud Console
 2. **Credentials** → Click OAuth client ID
 3. Verify **Authorized redirect URIs** includes:
-   - `https://geni-ai-pms.vercel.app/_/backend/api/oauth/google/callback`
+   - `https://geni-ai-pms.vercel.app/_/backend/api/auth/google/callback`
 4. Save and update
 
 ---
