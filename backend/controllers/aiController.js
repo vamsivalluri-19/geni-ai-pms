@@ -597,6 +597,7 @@ export const chat = async (req, res) => {
       success: true,
       role: normalizeRole(role),
       question: message,
+      result: result.reply,
       answer: result.reply,
       reply: result.reply,
       provider: result.provider,
@@ -633,6 +634,7 @@ export const studentChatbot = async (req, res) => {
       success: true,
       role,
       question: message || '',
+      result: result.reply,
       answer: result.reply,
       reply: result.reply,
       provider: result.provider,
@@ -658,6 +660,7 @@ export const staffChatbot = async (req, res) => {
       success: true,
       role,
       question: message || '',
+      result: result.reply,
       answer: result.reply,
       reply: result.reply,
       provider: result.provider,
@@ -683,6 +686,7 @@ export const hrChatbot = async (req, res) => {
       success: true,
       role,
       question: message || '',
+      result: result.reply,
       answer: result.reply,
       reply: result.reply,
       provider: result.provider,
@@ -722,22 +726,52 @@ export const adminChatbot = async (req, res) => {
 };
 
 /* ============================
-   STUBBED AI ENDPOINTS
+   IMPLEMENTED AI ENDPOINTS
+   These handlers reuse the Gemini + fallback flow above so the UI
+   receives real answers instead of 501 stubs.
 ============================ */
-const notImplemented = (name) => async (req, res) => {
-  try {
-    return res.status(501).json({ success: false, message: `${name} not implemented` });
-  } catch {
-    return res.status(500).json({ success: false });
-  }
-};
 
-export const generateResumeMatch = notImplemented('generateResumeMatch');
-export const generateInterviewQuestions = notImplemented('generateInterviewQuestions');
-export const generateReadinessPlan = notImplemented('generateReadinessPlan');
-export const generateOutreachDraft = notImplemented('generateOutreachDraft');
-export const generateRiskPrediction = notImplemented('generateRiskPrediction');
-export const parseJobDescription = notImplemented('parseJobDescription');
-export const reviewApplication = notImplemented('reviewApplication');
-export const generateAnalyticsNarrative = notImplemented('generateAnalyticsNarrative');
-export const knowledgeBaseAnswer = notImplemented('knowledgeBaseAnswer');
+async function runTaskHandler(req, res, sectionHint = '') {
+  try {
+    const bodyMessage = req.body?.message || req.body?.text || req.body?.jd || req.body?.prompt || '';
+    const role = req.body?.role || 'student';
+    let history = req.body?.history || [];
+    if (typeof history === 'string') {
+      try { history = JSON.parse(history); } catch { history = []; }
+    }
+
+    const file = req.file;
+    const result = await generateAssistantReply({
+      message: String(bodyMessage || ''),
+      role,
+      history,
+      section: sectionHint,
+      fixedContext: null,
+      file
+    });
+
+    return res.json({
+      success: true,
+      role: normalizeRole(role),
+      question: bodyMessage,
+      result: result.reply,
+      answer: result.reply,
+      reply: result.reply,
+      provider: result.provider,
+      source: result.source
+    });
+  } catch (err) {
+    console.error('AI task handler error:', err?.message || err);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+}
+
+export const generateResumeMatch = async (req, res) => runTaskHandler(req, res, 'resume-match');
+export const generateInterviewQuestions = async (req, res) => runTaskHandler(req, res, 'interview-questions');
+export const generateReadinessPlan = async (req, res) => runTaskHandler(req, res, 'readiness-plan');
+export const generateOutreachDraft = async (req, res) => runTaskHandler(req, res, 'outreach-draft');
+export const generateRiskPrediction = async (req, res) => runTaskHandler(req, res, 'risk-prediction');
+export const parseJobDescription = async (req, res) => runTaskHandler(req, res, 'jd-parse');
+export const reviewApplication = async (req, res) => runTaskHandler(req, res, 'application-review');
+export const generateAnalyticsNarrative = async (req, res) => runTaskHandler(req, res, 'analytics-narrative');
+export const knowledgeBaseAnswer = async (req, res) => runTaskHandler(req, res, 'knowledge-base');

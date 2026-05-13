@@ -2390,11 +2390,13 @@ const StudentDashboardPro = () => {
         response = await aiAPI.knowledgeBase({ question: genAIStudioInput.question });
       }
 
-      if (!response?.data?.result) {
+      const resultPayload = response?.data?.result || response?.data?.reply || response?.data?.answer || response?.data;
+
+      if (!resultPayload) {
         throw new Error('No GenAI result returned');
       }
 
-      setGenAIStudioOutput((prev) => ({ ...prev, [actionType]: response.data.result }));
+      setGenAIStudioOutput((prev) => ({ ...prev, [actionType]: resultPayload }));
     } catch (error) {
       const message = error?.response?.data?.message || error.message || 'Failed to execute action';
       setGenAIStudioOutput((prev) => ({ ...prev, [actionType]: { error: message } }));

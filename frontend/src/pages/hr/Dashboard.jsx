@@ -2515,11 +2515,13 @@ const HRDashboard = () => {
         response = await aiAPI.knowledgeBase({ question: genAIStudioInput.kbQuestion });
       }
 
-      if (!response?.data?.result) {
+      const resultPayload = response?.data?.result || response?.data?.reply || response?.data?.answer || response?.data;
+
+      if (!resultPayload) {
         throw new Error('No GenAI result returned');
       }
 
-      setGenAIStudioOutput((prev) => ({ ...prev, [actionType]: response.data.result }));
+      setGenAIStudioOutput((prev) => ({ ...prev, [actionType]: resultPayload }));
       pushFeatureActivity('GenAI Studio', `Executed ${actionType}`);
     } catch (error) {
       const message = error?.response?.data?.message || error.message || 'Failed to execute GenAI action';

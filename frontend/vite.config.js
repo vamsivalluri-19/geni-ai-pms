@@ -6,12 +6,12 @@ export default defineConfig({
   server: {
     proxy: {
           '/api': {
-            target: process.env.VITE_BACKEND_URL || 'https://gen-ai-placement-management-syste.onrender.com',
+            target: process.env.VITE_BACKEND_URL || 'http://localhost:5001',
             changeOrigin: true,
             secure: false,
           },
           '/socket.io': {
-            target: process.env.VITE_BACKEND_URL ? `ws://${process.env.VITE_BACKEND_URL.replace('https://', '')}` : 'wss://gen-ai-placement-management-syste.onrender.com',
+            target: process.env.VITE_BACKEND_URL ? `ws://${process.env.VITE_BACKEND_URL.replace('https://', '')}` : 'ws://localhost:5001',
             ws: true,
           },
     },
