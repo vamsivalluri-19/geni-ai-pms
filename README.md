@@ -192,6 +192,22 @@ Health endpoint:
 - Ensure frontend and backend URLs are aligned in CORS and environment variables.
 - Keep all secrets in secure environment configuration, never in source control.
 
+## Application Screenshots
+
+### Dashboard and Workflow Views
+
+![Dashboard View](https://github.com/user-attachments/assets/8b0d75f6-6013-496c-a34c-f2560eceec5c)
+![Recruitment Workflow](https://github.com/user-attachments/assets/c250322b-9cf4-4b23-b96f-014364b2af50)
+![Job Management](https://github.com/user-attachments/assets/b6289b3c-8ee7-4533-a7c3-23985eb9a6d6)
+![Analytics View](https://github.com/user-attachments/assets/b4d8fd19-5b77-478a-b162-0b12570fc0c6)
+
+### Forms and Admin Views
+
+![Application Form](https://github.com/user-attachments/assets/10b58291-16b9-4b07-b9e1-ce2f70328a9a)
+![Admin Module](https://github.com/user-attachments/assets/6378f3a8-6cbd-434d-82f2-254270db74f4)
+![Notification and Communication](https://github.com/user-attachments/assets/8b9c1730-b100-4422-aed0-9f3cb45d7116)
+![User Management](https://github.com/user-attachments/assets/54490179-c5cf-4090-88fd-6ae34bf37109)
+
 ## Contributor
 
 - Vamsi Valluri
